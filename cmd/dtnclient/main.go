@@ -233,20 +233,6 @@ func handleCreate(
 	sourceID, destinationID, reportTo, creationTimestamp, lifetime, payload string,
 ) {
 	var err error
-	args := make(map[string]interface{})
-	args["source"] = sourceID
-	args["destination"] = destinationID
-	if reportTo != "" {
-		args["report_to"] = reportTo
-	}
-	if creationTimestamp == "now" {
-		args["creation_timestamp_now"] = true
-	} else if creationTimestamp == "epoch" {
-		args["creation_timestamp_epoch"] = true
-	} else {
-		args["creation_timestamp_time"] = creationTimestamp
-	}
-	args["lifetime"] = lifetime
 
 	var payloadBytes []byte
 	if payload == "stdin" {
@@ -270,11 +256,15 @@ func handleCreate(
 			os.Exit(1)
 		}
 	}
-	args["payload_block"] = payloadBytes
 
 	msg := unix_agent.BundleCreateMessage{
-		Message: unix_agent.Message{Type: unix_agent.MsgTypeBundleCreate},
-		Args:    args,
+		Message:           unix_agent.Message{Type: unix_agent.MsgTypeBundleCreate},
+		DestinationID:     &destinationID,
+		Payload:           payloadBytes,
+		SourceID:          &sourceID,
+		CreationTimestamp: &creationTimestamp,
+		Lifetime:          &lifetime,
+		ReportTo:          &reportTo,
 	}
 
 	msgBytes, err := msgpack.Marshal(&msg)

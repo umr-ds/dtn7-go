@@ -26,9 +26,10 @@ type UNIXAgent struct {
 	listener      *net.UnixListener
 	mailboxes     *application_agent.MailboxBank
 	stopChan      chan interface{}
+	nodeID        bpv7.EndpointID
 }
 
-func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
+func NewUNIXAgent(listenAddress string, nodeID bpv7.EndpointID) (*UNIXAgent, error) {
 	unixAddr, err := net.ResolveUnixAddr("unix", listenAddress)
 	if err != nil {
 		return nil, err
@@ -38,6 +39,7 @@ func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
 		listenAddress: unixAddr,
 		mailboxes:     application_agent.NewMailboxBank(),
 		stopChan:      make(chan interface{}),
+		nodeID:        nodeID,
 	}
 	return &agent, nil
 }
@@ -289,7 +291,44 @@ func (agent *UNIXAgent) handleBundleCreate(message *BundleCreateMessage) ([]byte
 	}
 
 	failed := false
-	bundle, err := bpv7.BuildFromMap(message.Args)
+
+	// Convert structured message to map format for BuildFromMap
+	args := make(map[string]interface{})
+
+	args["destination"] = *message.DestinationID
+	args["payload_block"] = message.Payload
+
+	// Source: Use provided value or default to node ID
+	if message.SourceID != nil && *message.SourceID != "" {
+		args["source"] = *message.SourceID
+	} else {
+		args["source"] = agent.nodeID.String()
+	}
+
+	// Creation Timestamp: Use provided value or default to now
+	if message.CreationTimestamp == nil || *message.CreationTimestamp == "" || *message.CreationTimestamp == "now" {
+		args["creation_timestamp_now"] = true
+	} else if *message.CreationTimestamp == "epoch" {
+		args["creation_timestamp_epoch"] = true
+	} else {
+		args["creation_timestamp_time"] = *message.CreationTimestamp
+	}
+
+	// Lifetime: Use provided value or default to 3600s
+	if message.Lifetime != nil && *message.Lifetime != "" {
+		args["lifetime"] = *message.Lifetime
+	} else {
+		args["lifetime"] = "3600s"
+	}
+
+	// Report_to: Use provided value or default to source
+	if message.ReportTo != nil && *message.ReportTo != "" {
+		args["report_to"] = *message.ReportTo
+	} else {
+		args["report_to"] = args["source"]
+	}
+
+	bundle, err := bpv7.BuildFromMap(args)
 	if err != nil {
 		log.WithField("error", err).Debug("Error building bundle")
 		failed = true

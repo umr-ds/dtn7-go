@@ -131,7 +131,7 @@ func main() {
 		log.WithError(err).Fatal("Error registering REST application agent")
 	}
 
-	unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Address)
+	unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Address, conf.NodeID)
 	if err != nil {
 		log.WithError(err).Fatal("Error creating UNIX application agent")
 	}
