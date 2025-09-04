@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
+	"github.com/dtn7/dtn7-go/pkg/application_agent/rec_agent"
 	"github.com/dtn7/dtn7-go/pkg/application_agent/rest_agent"
 	"github.com/dtn7/dtn7-go/pkg/application_agent/unix_agent"
 	"github.com/dtn7/dtn7-go/pkg/cla"
@@ -84,6 +85,18 @@ func main() {
 		err = application_agent.GetManagerSingleton().RegisterAgent(unixAgent)
 		if err != nil {
 			log.WithError(err).Fatal("Error registering UNIX application agent")
+		}
+	}
+
+	if conf.Agents.REC.Socket != "" {
+		recAgent, err := rec_agent.NewRECAgent(conf.Agents.REC.Socket)
+		if err != nil {
+			log.WithError(err).Fatal("Error creating REC application agent")
+		}
+
+		err = application_agent.GetManagerSingleton().RegisterAgent(recAgent)
+		if err != nil {
+			log.WithError(err).Fatal("Error registering REC application agent")
 		}
 	}
 
