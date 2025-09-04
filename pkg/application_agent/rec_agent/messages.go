@@ -30,19 +30,18 @@ type Reply struct {
 	Text   string
 }
 
-type Register struct {
+type ControlRegister struct {
+	Message
+	EID string
+}
+
+type ControlFetch struct {
 	Message
 	EID   string
 	NType bpv7.RECNodeType
 }
 
-type Fetch struct {
-	Message
-	EID   string
-	NType bpv7.RECNodeType
-}
-
-type FetchReply struct {
+type ControlFetchReply struct {
 	Reply
 	Messages []BundleMessage
 }
@@ -59,12 +58,12 @@ type BundleReply struct {
 	Recipient string
 }
 
-type JobsQuery struct {
+type BundleJobsQuery struct {
 	BundleMessage
 	Submitter string
 }
 
-type JobsReply struct {
+type BundleJobsReply struct {
 	BundleReply
 	Queued    []string
 	Completed []string
