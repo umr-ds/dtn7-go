@@ -1,10 +1,14 @@
 package rec_agent
 
 import (
+	"bufio"
+	"encoding/binary"
+	"io"
 	"net"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
@@ -12,6 +16,9 @@ import (
 )
 
 const RECBrokerMulticastAddress = "dtn://rec.broker/~"
+const RECDataStoreMulticastAddress = "dtn://rec.store/~"
+const RECExecutorMulticastAddress = "dtn://rec.executor/~"
+const RECClientMulticastAddress = "dtn://rec.client/~"
 
 type RECAgent struct {
 	listenAddress *net.UnixAddr
@@ -27,6 +34,9 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 	}
 
 	brokerAddr := bpv7.MustNewEndpointID(RECBrokerMulticastAddress)
+	storeAddr := bpv7.MustNewEndpointID(RECDataStoreMulticastAddress)
+	executorAddress := bpv7.MustNewEndpointID(RECExecutorMulticastAddress)
+	clientAddress := bpv7.MustNewEndpointID(RECClientMulticastAddress)
 
 	agent := RECAgent{
 		listenAddress: unixAddr,
@@ -35,6 +45,9 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 	}
 
 	_ = agent.mailboxes.Register(brokerAddr)
+	_ = agent.mailboxes.Register(storeAddr)
+	_ = agent.mailboxes.Register(executorAddress)
+	_ = agent.mailboxes.Register(clientAddress)
 
 	return &agent, nil
 }
@@ -97,5 +110,121 @@ func (agent *RECAgent) listen() {
 }
 
 func (agent *RECAgent) handleConnection(conn net.Conn) {
+	connReader := bufio.NewReader(conn)
+	connWriter := bufio.NewWriter(conn)
 
+	msgLenBytes := make([]byte, 8)
+	log.Debug("Receiving message length")
+	_, err := io.ReadFull(connReader, msgLenBytes)
+	if err != nil {
+		log.WithField("error", err).Error("Failed reading 8-byte message length")
+		return
+	}
+
+	msgLen := binary.BigEndian.Uint64(msgLenBytes)
+	log.WithField("msgLength", msgLen).Debug("Received msgLength")
+
+	log.Debug("Receiving message")
+	msgBytes := make([]byte, msgLen)
+	_, err = io.ReadFull(connReader, msgBytes)
+	if err != nil {
+		log.WithField("error", err).Error("Failed reading message")
+		return
+	}
+
+	log.Debug("Unmarshaling message")
+	message := Message{}
+	err = msgpack.Unmarshal(msgBytes, &message)
+	if err != nil {
+		log.WithField("error", err).Error("Failed unmarshalling message")
+		return
+	}
+	log.WithField("type", message.Type).Debug("Received message")
+
+	var replyBytes []byte
+	switch message.Type {
+	case MsgTypeRegister:
+		typedMessage := ControlRegister{}
+		err = msgpack.Unmarshal(msgBytes, &typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Failed unmarshalling register control message")
+			return
+		}
+
+		replyBytes, err = agent.handleRegister(&typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Error handling register control message")
+			return
+		}
+	default:
+		log.Debug("Not doing anything with this message")
+		return
+	}
+
+	replyLength := uint64(len(replyBytes))
+	replyLengthBytes := make([]byte, 8)
+	_, err = binary.Encode(replyLengthBytes, binary.BigEndian, replyLength)
+	if err != nil {
+		log.WithField("error", err).Error("Error encoding reply length")
+		return
+	}
+
+	_, err = connWriter.Write(replyLengthBytes)
+	if err != nil {
+		log.WithField("error", err).Error("Error sending reply length")
+		return
+	}
+	_, err = connWriter.Write(replyBytes)
+	if err != nil {
+		log.WithField("error", err).Error("Error sending reply")
+		return
+	}
+	err = connWriter.Flush()
+	if err != nil {
+		log.WithField("error", err).Error("Error flushing send buffer")
+		return
+	}
+}
+
+func (agent *RECAgent) handleRegister(message *ControlRegister) ([]byte, error) {
+	reply := Reply{
+		Message: Message{Type: MsgTypeReply},
+		Status:  MsgStatusSuccess,
+		Text:    "",
+	}
+
+	failure := false
+
+	eid, err := bpv7.NewEndpointID(message.EID)
+	if err != nil {
+		failure = true
+		reply.Status = MsgStatusFailure
+		reply.Text = err.Error()
+		log.WithFields(log.Fields{
+			"eid":   message.EID,
+			"error": err,
+		}).Debug("Error parsing EndpointID")
+	}
+
+	if !failure {
+		err = agent.mailboxes.Register(eid)
+	}
+	if err != nil {
+		failure = true
+		reply.Status = MsgStatusFailure
+		reply.Text = err.Error()
+		log.WithFields(log.Fields{
+			"eid":   message.EID,
+			"error": err,
+		}).Debug("Error performing (un)registration")
+	}
+
+	log.Debug("Marshalling response")
+	responseBytes, err := msgpack.Marshal(&reply)
+	if err != nil {
+		log.WithField("error", err).Error("Response marshalling error")
+		return nil, err
+	}
+
+	return responseBytes, nil
 }

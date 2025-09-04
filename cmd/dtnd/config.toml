@@ -17,6 +17,9 @@ address = "localhost:8080"
 # path to the communication socket
 socket = "/tmp/dtnd.socket"
 
+[Agents.REC]
+socket = "/tmp/dtn_rec.socket"
+
 [[Listener]]
 type = "QUICL"
 address = ":35037"
