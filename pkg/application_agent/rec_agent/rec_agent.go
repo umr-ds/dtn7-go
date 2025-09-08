@@ -154,7 +154,7 @@ func (agent *RECAgent) handleConnection(conn net.Conn) {
 	var replyBytes []byte
 	switch message.Type {
 	case MsgTypeRegister:
-		typedMessage := ControlRegister{}
+		typedMessage := Register{}
 		err = msgpack.Unmarshal(msgBytes, &typedMessage)
 		if err != nil {
 			log.WithField("error", err).Error("Failed unmarshalling register control message")
@@ -162,6 +162,19 @@ func (agent *RECAgent) handleConnection(conn net.Conn) {
 		}
 
 		replyBytes, err = agent.handleRegister(&typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Error handling register control message")
+			return
+		}
+	case MsgTypeFetch:
+		typedMessage := Fetch{}
+		err = msgpack.Unmarshal(msgBytes, &typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Failed unmarshalling fetch control message")
+			return
+		}
+
+		replyBytes, err = agent.handleFetch(&typedMessage)
 		if err != nil {
 			log.WithField("error", err).Error("Error handling register control message")
 			return
@@ -196,11 +209,11 @@ func (agent *RECAgent) handleConnection(conn net.Conn) {
 	}
 }
 
-func (agent *RECAgent) handleRegister(message *ControlRegister) ([]byte, error) {
+func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
 	reply := Reply{
 		Message: Message{Type: MsgTypeReply},
-		Status:  MsgStatusSuccess,
-		Text:    "",
+		Success: true,
+		Error:   "",
 	}
 
 	failure := false
@@ -208,8 +221,8 @@ func (agent *RECAgent) handleRegister(message *ControlRegister) ([]byte, error) 
 	eid, err := bpv7.NewEndpointID(message.EID)
 	if err != nil {
 		failure = true
-		reply.Status = MsgStatusFailure
-		reply.Text = err.Error()
+		reply.Success = false
+		reply.Error = err.Error()
 		log.WithFields(log.Fields{
 			"eid":   message.EID,
 			"error": err,
@@ -221,8 +234,8 @@ func (agent *RECAgent) handleRegister(message *ControlRegister) ([]byte, error) 
 	}
 	if err != nil {
 		failure = true
-		reply.Status = MsgStatusFailure
-		reply.Text = err.Error()
+		reply.Success = false
+		reply.Error = err.Error()
 		log.WithFields(log.Fields{
 			"eid":   message.EID,
 			"error": err,
@@ -230,11 +243,33 @@ func (agent *RECAgent) handleRegister(message *ControlRegister) ([]byte, error) 
 	}
 
 	log.Debug("Marshalling response")
-	responseBytes, err := msgpack.Marshal(&reply)
+	replyBytes, err := msgpack.Marshal(&reply)
 	if err != nil {
 		log.WithField("error", err).Error("Response marshalling error")
 		return nil, err
 	}
 
-	return responseBytes, nil
+	return replyBytes, nil
+}
+
+func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
+	reply := FetchReply{
+		Reply: Reply{
+			Message: Message{Type: MsgTypeFetchReply},
+			Success: true,
+			Error:   "",
+		},
+		Messages: make([]BndlMessage, 0),
+	}
+
+	// TODO: get bundles from mailboxes and transform them into BundleMessages
+
+	log.Debug("Marshalling response")
+	replyBytes, err := msgpack.Marshal(&reply)
+	if err != nil {
+		log.WithField("error", err).Error("Response marshalling error")
+		return nil, err
+	}
+
+	return replyBytes, nil
 }
