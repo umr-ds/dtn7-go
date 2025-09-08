@@ -176,9 +176,23 @@ func (agent *RECAgent) handleConnection(conn net.Conn) {
 
 		replyBytes, err = agent.handleFetch(&typedMessage)
 		if err != nil {
-			log.WithField("error", err).Error("Error handling register control message")
+			log.WithField("error", err).Error("Error handling fetch control message")
 			return
 		}
+	case MsgTypeBundleCreate:
+		typedMessage := BundleCreate{}
+		err = msgpack.Unmarshal(msgBytes, &typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Failed unmarshalling create control message")
+			return
+		}
+
+		replyBytes, err = agent.handleCreate(&typedMessage)
+		if err != nil {
+			log.WithField("error", err).Error("Error handling create control message")
+			return
+		}
+
 	default:
 		log.Debug("Not doing anything with this message")
 		return
@@ -259,10 +273,60 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 			Success: true,
 			Error:   "",
 		},
-		Messages: make([]BndlMessage, 0),
+		Messages: make([]BundleData, 0),
 	}
 
 	// TODO: get bundles from mailboxes and transform them into BundleMessages
+
+	log.Debug("Marshalling response")
+	replyBytes, err := msgpack.Marshal(&reply)
+	if err != nil {
+		log.WithField("error", err).Error("Response marshalling error")
+		return nil, err
+	}
+
+	return replyBytes, nil
+}
+
+func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
+	log.Debug("Creating bundle")
+	reply := Reply{
+		Message: Message{Type: MsgTypeReply},
+		Success: true,
+		Error:   "",
+	}
+	failure := false
+
+	srcAddress, err := bpv7.NewEndpointID(message.Bundle.Sender)
+	if err != nil {
+		failure = true
+		reply.Success = false
+		reply.Error = err.Error()
+	}
+
+	var dstAddress bpv7.EndpointID
+	if !failure {
+		dstAddress, err = bpv7.NewEndpointID(message.Bundle.Recipient)
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		}
+	}
+
+	if !failure {
+		bldr := bpv7.Builder().Source(srcAddress).Destination(dstAddress).CreationTimestampNow().Lifetime("1h").PayloadBlock(message.Bundle.Payload)
+		bndl, err := bldr.Build()
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		}
+
+		if !failure {
+			application_agent.GetManagerSingleton().Send(bndl)
+		}
+	}
 
 	log.Debug("Marshalling response")
 	replyBytes, err := msgpack.Marshal(&reply)

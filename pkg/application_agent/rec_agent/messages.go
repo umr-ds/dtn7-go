@@ -12,16 +12,8 @@ const (
 	MsgTypeBundleCreate MessageType = 5
 )
 
-type ControlMessage interface {
-	MsgType() MessageType
-}
-
 type Message struct {
 	Type MessageType
-}
-
-func (msg Message) MsgType() MessageType {
-	return msg.Type
 }
 
 type Reply struct {
@@ -30,17 +22,9 @@ type Reply struct {
 	Error   string
 }
 
-func (msg Reply) MsgType() MessageType {
-	return msg.Type
-}
-
 type Register struct {
 	Message
 	EID string
-}
-
-func (msg Register) MsgType() MessageType {
-	return msg.Type
 }
 
 type Fetch struct {
@@ -49,26 +33,14 @@ type Fetch struct {
 	NType bpv7.RECNodeType
 }
 
-func (msg Fetch) MsgType() MessageType {
-	return msg.Type
-}
-
 type FetchReply struct {
 	Reply
-	Messages []BndlMessage
-}
-
-func (msg FetchReply) MsgType() MessageType {
-	return msg.Type
+	Messages []BundleData
 }
 
 type BundleCreate struct {
 	Message
-	Bndl BndlMessage
-}
-
-func (msg BundleCreate) MsgType() MessageType {
-	return msg.Type
+	Bundle BundleData
 }
 
 type BundleType uint8
@@ -78,35 +50,10 @@ const (
 	BndlTypeJobsReply BundleType = 2
 )
 
-type BndlMessage interface {
-	BndlType() BundleType
-}
-
-type BundleMessage struct {
+type BundleData struct {
 	Type      BundleType
 	Sender    string
 	Recipient string
-}
-
-func (msg BundleMessage) BndlType() BundleType {
-	return msg.Type
-}
-
-type BundleJobsQuery struct {
-	BundleMessage
-	Submitter string
-}
-
-func (msg BundleJobsQuery) BndlType() BundleType {
-	return msg.Type
-}
-
-type BundleJobsReply struct {
-	BundleMessage
-	Queued    []string
-	Completed []string
-}
-
-func (msg BundleJobsReply) BndlType() BundleType {
-	return msg.Type
+	Payload   []byte
+	Metadata  map[string]string
 }
