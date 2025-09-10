@@ -24,18 +24,18 @@ type Reply struct {
 
 type Register struct {
 	Message
-	EID string
+	EndpointID string
 }
 
 type Fetch struct {
 	Message
-	EID   string
-	NType bpv7.RECNodeType
+	EndpointID string
+	NodeType   bpv7.RECNodeType
 }
 
 type FetchReply struct {
 	Reply
-	Messages []BundleData
+	Bundles []BundleData
 }
 
 type BundleCreate struct {
@@ -51,9 +51,9 @@ const (
 )
 
 type BundleData struct {
-	Type      BundleType
-	Sender    string
-	Recipient string
-	Payload   []byte
-	Metadata  map[string]string
+	Type        BundleType
+	Source      string
+	Destination string
+	Payload     []byte
+	Metadata    map[string]string
 }
