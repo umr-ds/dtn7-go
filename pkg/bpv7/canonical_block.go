@@ -49,6 +49,9 @@ const (
 
 	// BlockTypeSignatureBlock is the custom block type code for a SignatureBlock, bpv7/extension_block_signature.go
 	BlockTypeSignatureBlock BlockType = 195
+
+	BlockTypeRECJobQuery BlockType = 1001
+	BlockTypeRECJobReply BlockType = 1002
 )
 
 // CanonicalBlock represents the canonical bundle block defined in section 4.3.2

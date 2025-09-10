@@ -53,6 +53,8 @@ func createBlock(typeCode BlockType) ExtensionBlock {
 		return &b
 	case BlockTypeSignatureBlock:
 		return &SignatureBlock{}
+	case BlockTypeRECJobQuery:
+		return &RECJobQuery{}
 	default:
 		return &GenericExtensionBlock{typeCode: typeCode}
 	}
