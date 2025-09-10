@@ -3,9 +3,11 @@ package rec_agent
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -22,10 +24,11 @@ const RECExecutorMulticastAddress = "dtn://rec.executor/~"
 const RECClientMulticastAddress = "dtn://rec.client/~"
 
 type RECAgent struct {
-	listenAddress *net.UnixAddr
-	listener      *net.UnixListener
-	mailboxes     *application_agent.MailboxBank
-	stopChan      chan interface{}
+	listenAddress      *net.UnixAddr
+	listener           *net.UnixListener
+	mailboxes          *application_agent.MailboxBank
+	stopChan           chan interface{}
+	multicastAddresses map[bpv7.RECNodeType]bpv7.EndpointID
 }
 
 func NewRECAgent(listenAddress string) (*RECAgent, error) {
@@ -39,10 +42,17 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 	executorAddress := bpv7.MustNewEndpointID(RECExecutorMulticastAddress)
 	clientAddress := bpv7.MustNewEndpointID(RECClientMulticastAddress)
 
+	multicastAddresses := make(map[bpv7.RECNodeType]bpv7.EndpointID, 4)
+	multicastAddresses[bpv7.NTypeBroker] = brokerAddr
+	multicastAddresses[bpv7.NTypeExecutor] = executorAddress
+	multicastAddresses[bpv7.NTypeDataStore] = storeAddr
+	multicastAddresses[bpv7.NTypeClient] = clientAddress
+
 	agent := RECAgent{
-		listenAddress: unixAddr,
-		mailboxes:     application_agent.NewMailboxBank(),
-		stopChan:      make(chan interface{}),
+		listenAddress:      unixAddr,
+		mailboxes:          application_agent.NewMailboxBank(),
+		stopChan:           make(chan interface{}),
+		multicastAddresses: multicastAddresses,
 	}
 
 	_ = agent.mailboxes.Register(brokerAddr)
@@ -232,13 +242,13 @@ func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
 
 	failure := false
 
-	eid, err := bpv7.NewEndpointID(message.EID)
+	eid, err := bpv7.NewEndpointID(message.EndpointID)
 	if err != nil {
 		failure = true
 		reply.Success = false
 		reply.Error = err.Error()
 		log.WithFields(log.Fields{
-			"eid":   message.EID,
+			"eid":   message.EndpointID,
 			"error": err,
 		}).Debug("Error parsing EndpointID")
 	}
@@ -251,7 +261,7 @@ func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
 		reply.Success = false
 		reply.Error = err.Error()
 		log.WithFields(log.Fields{
-			"eid":   message.EID,
+			"eid":   message.EndpointID,
 			"error": err,
 		}).Debug("Error performing (un)registration")
 	}
@@ -273,10 +283,70 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 			Success: true,
 			Error:   "",
 		},
-		Messages: make([]BundleData, 0),
+	}
+	allBundles := make([]*bpv7.Bundle, 0)
+	failure := false
+
+	var address bpv7.EndpointID
+	var mailbox *application_agent.Mailbox
+	var bundles []*bpv7.Bundle
+
+	// get unicase bundles
+	address, err := bpv7.NewEndpointID(message.EndpointID)
+	if err != nil {
+		failure = true
+		reply.Success = false
+		reply.Error = err.Error()
 	}
 
-	// TODO: get bundles from mailboxes and transform them into BundleMessages
+	if !failure {
+		mailbox, err = agent.mailboxes.GetMailbox(address)
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		} else {
+			bundles, err = mailbox.GetAll(true)
+			if err != nil {
+				failure = true
+				reply.Success = false
+				reply.Error = err.Error()
+			} else {
+				allBundles = slices.Concat(allBundles, bundles)
+			}
+		}
+	}
+
+	// get multicast bundles
+	address = agent.multicastAddresses[message.NodeType]
+	if !failure {
+		mailbox, err = agent.mailboxes.GetMailbox(address)
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		} else {
+			bundles, err = mailbox.GetAll(true)
+			if err != nil {
+				failure = true
+				reply.Success = false
+				reply.Error = err.Error()
+			} else {
+				allBundles = slices.Concat(allBundles, bundles)
+			}
+		}
+	}
+
+	allBundleData := make([]BundleData, 0, len(allBundles))
+	if !failure {
+		for _, bundle := range allBundles {
+			bundleData, err := transformBundle(bundle)
+			if err == nil {
+				allBundleData = append(allBundleData, bundleData)
+			}
+		}
+	}
+	reply.Bundles = allBundleData
 
 	log.Debug("Marshalling response")
 	replyBytes, err := msgpack.Marshal(&reply)
@@ -288,6 +358,23 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 	return replyBytes, nil
 }
 
+func transformBundle(bundle *bpv7.Bundle) (BundleData, error) {
+	bundleData := BundleData{
+		Source:      bundle.PrimaryBlock.SourceNode.String(),
+		Destination: bundle.PrimaryBlock.Destination.String(),
+		Payload:     bundle.PayloadBlock.Value.(*bpv7.PayloadBlock).Data(),
+		Metadata:    make(map[string]string),
+	}
+
+	if jobQueryBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECJobQuery); err == nil {
+		bundleData.Type = BndlTypeJobsQuery
+		bundleData.Metadata["Submitter"] = jobQueryBlock.Value.(*bpv7.RECJobQuery).Submitter
+		return bundleData, nil
+	}
+
+	return bundleData, errors.New("bundle did not contain recognized ExtensionBlock")
+}
+
 func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 	log.Debug("Creating bundle")
 	reply := Reply{
@@ -297,7 +384,7 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 	}
 	failure := false
 
-	srcAddress, err := bpv7.NewEndpointID(message.Bundle.Sender)
+	srcAddress, err := bpv7.NewEndpointID(message.Bundle.Source)
 	if err != nil {
 		failure = true
 		reply.Success = false
@@ -306,7 +393,17 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 
 	var dstAddress bpv7.EndpointID
 	if !failure {
-		dstAddress, err = bpv7.NewEndpointID(message.Bundle.Recipient)
+		dstAddress, err = bpv7.NewEndpointID(message.Bundle.Destination)
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		}
+	}
+
+	var extensionBlocks []bpv7.ExtensionBlock
+	if !failure {
+		extensionBlocks, err = generateExtensionBlocks(message.Bundle)
 		if err != nil {
 			failure = true
 			reply.Success = false
@@ -316,6 +413,11 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 
 	if !failure {
 		bldr := bpv7.Builder().Source(srcAddress).Destination(dstAddress).CreationTimestampNow().Lifetime("1h").PayloadBlock(message.Bundle.Payload)
+
+		for _, extensionBlock := range extensionBlocks {
+			bldr.Canonical(extensionBlock)
+		}
+
 		bndl, err := bldr.Build()
 		if err != nil {
 			failure = true
@@ -336,4 +438,18 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 	}
 
 	return replyBytes, nil
+}
+
+func generateExtensionBlocks(bundleMessage BundleData) ([]bpv7.ExtensionBlock, error) {
+	blocks := make([]bpv7.ExtensionBlock, 0)
+
+	switch bundleMessage.Type {
+	case BndlTypeJobsQuery:
+		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Metadata["Submitter"])
+		blocks = append(blocks, jobQueryBlock)
+	default:
+		return nil, errors.New(fmt.Sprintf("Unknown bundle type: %v", bundleMessage.Type))
+	}
+
+	return blocks, nil
 }
