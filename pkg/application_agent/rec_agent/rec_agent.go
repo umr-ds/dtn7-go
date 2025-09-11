@@ -444,7 +444,7 @@ func generateExtensionBlocks(bundleMessage BundleData) ([]bpv7.ExtensionBlock, e
 	blocks := make([]bpv7.ExtensionBlock, 0)
 
 	switch bundleMessage.Type {
-	case BndlTypeJobsQuery:
+	case BndlTypeJobsQuery, BndlTypeJobsReply:
 		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Metadata["Submitter"])
 		blocks = append(blocks, jobQueryBlock)
 	default:
