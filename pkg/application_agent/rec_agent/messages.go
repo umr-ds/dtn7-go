@@ -13,34 +13,34 @@ const (
 )
 
 type Message struct {
-	Type MessageType
+	Type MessageType `msgpack:"type"`
 }
 
 type Reply struct {
 	Message
-	Success bool
-	Error   string
+	Success bool   `msgpack:"success"`
+	Error   string `msgpack:"error"`
 }
 
 type Register struct {
 	Message
-	EndpointID string
+	EndpointID string `msgpack:"endpoint_id"`
 }
 
 type Fetch struct {
 	Message
-	EndpointID string
-	NodeType   bpv7.RECNodeType
+	EndpointID string           `msgpack:"endpoint_id"`
+	NodeType   bpv7.RECNodeType `msgpack:"node_type"`
 }
 
 type FetchReply struct {
 	Reply
-	Bundles []BundleData
+	Bundles []BundleData `msgpack:"bundles"`
 }
 
 type BundleCreate struct {
 	Message
-	Bundle BundleData
+	Bundle BundleData `msgpack:"bundle"`
 }
 
 type BundleType uint8
@@ -51,9 +51,10 @@ const (
 )
 
 type BundleData struct {
-	Type        BundleType
-	Source      string
-	Destination string
-	Payload     []byte
-	Metadata    map[string]string
+	Type        BundleType `msgpack:"type"`
+	Source      string     `msgpack:"source"`
+	Destination string     `msgpack:"destination"`
+	Payload     []byte     `msgpack:"payload"`
+	// Used for bpv7.RECJobQueryBlock
+	Submitter string `msgpack:"submitter,omitempty"`
 }
