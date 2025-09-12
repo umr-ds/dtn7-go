@@ -363,12 +363,11 @@ func transformBundle(bundle *bpv7.Bundle) (BundleData, error) {
 		Source:      bundle.PrimaryBlock.SourceNode.String(),
 		Destination: bundle.PrimaryBlock.Destination.String(),
 		Payload:     bundle.PayloadBlock.Value.(*bpv7.PayloadBlock).Data(),
-		Metadata:    make(map[string]string),
 	}
 
 	if jobQueryBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECJobQuery); err == nil {
 		bundleData.Type = BndlTypeJobsQuery
-		bundleData.Metadata["Submitter"] = jobQueryBlock.Value.(*bpv7.RECJobQuery).Submitter
+		bundleData.Submitter = jobQueryBlock.Value.(*bpv7.RECJobQuery).Submitter
 		return bundleData, nil
 	}
 
@@ -445,7 +444,7 @@ func generateExtensionBlocks(bundleMessage BundleData) ([]bpv7.ExtensionBlock, e
 
 	switch bundleMessage.Type {
 	case BndlTypeJobsQuery, BndlTypeJobsReply:
-		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Metadata["Submitter"])
+		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Submitter)
 		blocks = append(blocks, jobQueryBlock)
 	default:
 		return nil, errors.New(fmt.Sprintf("Unknown bundle type: %v", bundleMessage.Type))
