@@ -234,6 +234,7 @@ func (agent *RECAgent) handleConnection(conn net.Conn) {
 }
 
 func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
+	log.WithField("eid", message.EndpointID).Debug("Performing registration")
 	reply := Reply{
 		Message: Message{Type: MsgTypeReply},
 		Success: true,
@@ -255,21 +256,21 @@ func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
 
 	if !failure {
 		err = agent.mailboxes.Register(eid)
-	}
-	if err != nil {
-		failure = true
-		reply.Success = false
-		reply.Error = err.Error()
-		log.WithFields(log.Fields{
-			"eid":   message.EndpointID,
-			"error": err,
-		}).Debug("Error performing (un)registration")
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+			log.WithFields(log.Fields{
+				"eid":   message.EndpointID,
+				"error": err,
+			}).Debug("Error performing registration")
+		}
 	}
 
-	log.Debug("Marshalling response")
+	log.Debug("Marshalling reply")
 	replyBytes, err := msgpack.Marshal(&reply)
 	if err != nil {
-		log.WithField("error", err).Error("Response marshalling error")
+		log.WithField("error", err).Error("Reply marshalling error")
 		return nil, err
 	}
 
@@ -277,6 +278,10 @@ func (agent *RECAgent) handleRegister(message *Register) ([]byte, error) {
 }
 
 func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
+	log.WithFields(log.Fields{
+		"eid":       message.EndpointID,
+		"node type": message.NodeType,
+	}).Debug("Handling bundle fetch")
 	reply := FetchReply{
 		Reply: Reply{
 			Message: Message{Type: MsgTypeFetchReply},
@@ -291,7 +296,7 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 	var mailbox *application_agent.Mailbox
 	var bundles []*bpv7.Bundle
 
-	// get unicase bundles
+	// get unicast bundles
 	address, err := bpv7.NewEndpointID(message.EndpointID)
 	if err != nil {
 		failure = true
@@ -312,6 +317,7 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 				reply.Success = false
 				reply.Error = err.Error()
 			} else {
+				log.WithField("bundles", bundles).Debug("Unicast bundles")
 				allBundles = slices.Concat(allBundles, bundles)
 			}
 		}
@@ -332,10 +338,12 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 				reply.Success = false
 				reply.Error = err.Error()
 			} else {
+				log.WithField("bundles", bundles).Debug("Multicast bundles")
 				allBundles = slices.Concat(allBundles, bundles)
 			}
 		}
 	}
+	log.WithField("bundles", allBundles).Debug("All bundles")
 
 	allBundleData := make([]BundleData, 0, len(allBundles))
 	if !failure {
@@ -347,11 +355,12 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 		}
 	}
 	reply.Bundles = allBundleData
+	log.WithField("reply", reply).Debug("Fetch reply")
 
-	log.Debug("Marshalling response")
+	log.Debug("Marshalling reply")
 	replyBytes, err := msgpack.Marshal(&reply)
 	if err != nil {
-		log.WithField("error", err).Error("Response marshalling error")
+		log.WithField("error", err).Error("Reply marshalling error")
 		return nil, err
 	}
 
@@ -359,6 +368,7 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 }
 
 func transformBundle(bundle *bpv7.Bundle) (BundleData, error) {
+	log.WithField("bundle", bundle).Debug("Transforming bundle")
 	bundleData := BundleData{
 		Source:      bundle.PrimaryBlock.SourceNode.String(),
 		Destination: bundle.PrimaryBlock.Destination.String(),
@@ -366,8 +376,17 @@ func transformBundle(bundle *bpv7.Bundle) (BundleData, error) {
 	}
 
 	if jobQueryBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECJobQuery); err == nil {
+		log.Debug("Bundle is JobQuery")
 		bundleData.Type = BndlTypeJobsQuery
-		bundleData.Submitter = jobQueryBlock.Value.(*bpv7.RECJobQuery).Submitter
+		bundleData.Submitter = jobQueryBlock.Value.(*bpv7.RECJobQueryBlock).Submitter
+		return bundleData, nil
+	}
+
+	if namedDataBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECNamedData); err == nil {
+		log.Debug("Bundle is NamedData")
+		bundleData.Type = BndlTypeNamedData
+		bundleData.NamedData.Action = namedDataBlock.Value.(*bpv7.RECNamedDataBlock).Action
+		bundleData.NamedData.Name = namedDataBlock.Value.(*bpv7.RECNamedDataBlock).Name
 		return bundleData, nil
 	}
 
@@ -443,9 +462,12 @@ func generateExtensionBlocks(bundleMessage BundleData) ([]bpv7.ExtensionBlock, e
 	blocks := make([]bpv7.ExtensionBlock, 0)
 
 	switch bundleMessage.Type {
-	case BndlTypeJobsQuery, BndlTypeJobsReply:
+	case BndlTypeJobsQuery:
 		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Submitter)
 		blocks = append(blocks, jobQueryBlock)
+	case BndlTypeNamedData:
+		namedDataBlock := bpv7.NewRECNamedDataBlock(bundleMessage.NamedData.Action, bundleMessage.NamedData.Name)
+		blocks = append(blocks, namedDataBlock)
 	default:
 		return nil, errors.New(fmt.Sprintf("Unknown bundle type: %v", bundleMessage.Type))
 	}
