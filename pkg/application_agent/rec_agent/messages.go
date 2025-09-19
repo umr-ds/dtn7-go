@@ -47,14 +47,23 @@ type BundleType uint8
 
 const (
 	BndlTypeJobsQuery BundleType = 1
-	BndlTypeJobsReply BundleType = 2
+	BndlTypeNamedData BundleType = 2
 )
+
+type NamedData struct {
+	Action bpv7.RECNamedDataAction `msgpack:"action"`
+	Name   string                  `msgpack:"name"`
+}
 
 type BundleData struct {
 	Type        BundleType `msgpack:"type"`
 	Source      string     `msgpack:"source"`
 	Destination string     `msgpack:"destination"`
 	Payload     []byte     `msgpack:"payload"`
+	Success     bool       `msgpack:"success"`
+	Error       string     `msgpack:"error"`
 	// Used for bpv7.RECJobQueryBlock
 	Submitter string `msgpack:"submitter,omitempty"`
+	// Used for bpv7.RECNamedDataBlock
+	NamedData NamedData `msgpack:"named_data,omitempty"`
 }
