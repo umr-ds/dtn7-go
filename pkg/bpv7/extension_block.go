@@ -175,6 +175,7 @@ func GetExtensionBlockManager() *ExtensionBlockManager {
 		_ = extensionBlockManager.Register(NewHopCountBlock(0))
 
 		_ = extensionBlockManager.Register(NewRECJobQueryBlock(""))
+		_ = extensionBlockManager.Register(NewRECNamedDataBlock(RECNamedDataActionPut, ""))
 	}
 
 	return extensionBlockManager
