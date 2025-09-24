@@ -3,8 +3,6 @@ package rec_agent
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 	"net"
 	"slices"
@@ -28,7 +26,7 @@ type RECAgent struct {
 	listener           *net.UnixListener
 	mailboxes          *application_agent.MailboxBank
 	stopChan           chan interface{}
-	multicastAddresses map[bpv7.RECNodeType]bpv7.EndpointID
+	multicastAddresses map[RECNodeType]bpv7.EndpointID
 }
 
 func NewRECAgent(listenAddress string) (*RECAgent, error) {
@@ -42,11 +40,11 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 	executorAddress := bpv7.MustNewEndpointID(RECExecutorMulticastAddress)
 	clientAddress := bpv7.MustNewEndpointID(RECClientMulticastAddress)
 
-	multicastAddresses := make(map[bpv7.RECNodeType]bpv7.EndpointID, 4)
-	multicastAddresses[bpv7.NTypeBroker] = brokerAddr
-	multicastAddresses[bpv7.NTypeExecutor] = executorAddress
-	multicastAddresses[bpv7.NTypeDataStore] = storeAddr
-	multicastAddresses[bpv7.NTypeClient] = clientAddress
+	multicastAddresses := make(map[RECNodeType]bpv7.EndpointID, 4)
+	multicastAddresses[NTypeBroker] = brokerAddr
+	multicastAddresses[NTypeExecutor] = executorAddress
+	multicastAddresses[NTypeDataStore] = storeAddr
+	multicastAddresses[NTypeClient] = clientAddress
 
 	agent := RECAgent{
 		listenAddress:      unixAddr,
@@ -348,9 +346,15 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 	allBundleData := make([]BundleData, 0, len(allBundles))
 	if !failure {
 		for _, bundle := range allBundles {
-			bundleData, err := transformBundle(bundle)
+			var bundleData BundleData
+			err := msgpack.Unmarshal(bundle.PayloadBlock.Value.(*bpv7.PayloadBlock).Data(), &bundleData)
 			if err == nil {
 				allBundleData = append(allBundleData, bundleData)
+			} else {
+				log.WithFields(log.Fields{
+					"bundle": bundle.ID(),
+					"error":  err,
+				}).Error("Error unmarshalling bundle payload")
 			}
 		}
 	}
@@ -365,32 +369,6 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 	}
 
 	return replyBytes, nil
-}
-
-func transformBundle(bundle *bpv7.Bundle) (BundleData, error) {
-	log.WithField("bundle", bundle).Debug("Transforming bundle")
-	bundleData := BundleData{
-		Source:      bundle.PrimaryBlock.SourceNode.String(),
-		Destination: bundle.PrimaryBlock.Destination.String(),
-		Payload:     bundle.PayloadBlock.Value.(*bpv7.PayloadBlock).Data(),
-	}
-
-	if jobQueryBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECJobQuery); err == nil {
-		log.Debug("Bundle is JobQuery")
-		bundleData.Type = BndlTypeJobsQuery
-		bundleData.Submitter = jobQueryBlock.Value.(*bpv7.RECJobQueryBlock).Submitter
-		return bundleData, nil
-	}
-
-	if namedDataBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypeRECNamedData); err == nil {
-		log.Debug("Bundle is NamedData")
-		bundleData.Type = BndlTypeNamedData
-		bundleData.NamedData.Action = namedDataBlock.Value.(*bpv7.RECNamedDataBlock).Action
-		bundleData.NamedData.Name = namedDataBlock.Value.(*bpv7.RECNamedDataBlock).Name
-		return bundleData, nil
-	}
-
-	return bundleData, errors.New("bundle did not contain recognized ExtensionBlock")
 }
 
 func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
@@ -419,9 +397,9 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 		}
 	}
 
-	var extensionBlocks []bpv7.ExtensionBlock
+	var payload []byte
 	if !failure {
-		extensionBlocks, err = generateExtensionBlocks(message.Bundle)
+		payload, err = msgpack.Marshal(message.Bundle)
 		if err != nil {
 			failure = true
 			reply.Success = false
@@ -430,11 +408,8 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 	}
 
 	if !failure {
-		bldr := bpv7.Builder().Source(srcAddress).Destination(dstAddress).CreationTimestampNow().Lifetime("1h").PayloadBlock(message.Bundle.Payload)
-
-		for _, extensionBlock := range extensionBlocks {
-			bldr.Canonical(extensionBlock)
-		}
+		typeBlock := bpv7.NewRECBundleTypeBlock(uint8(message.Bundle.Type))
+		bldr := bpv7.Builder().Source(srcAddress).Destination(dstAddress).CreationTimestampNow().Lifetime("1h").PayloadBlock(payload).Canonical(typeBlock)
 
 		bndl, err := bldr.Build()
 		if err != nil {
@@ -456,21 +431,4 @@ func (agent *RECAgent) handleCreate(message *BundleCreate) ([]byte, error) {
 	}
 
 	return replyBytes, nil
-}
-
-func generateExtensionBlocks(bundleMessage BundleData) ([]bpv7.ExtensionBlock, error) {
-	blocks := make([]bpv7.ExtensionBlock, 0)
-
-	switch bundleMessage.Type {
-	case BndlTypeJobsQuery:
-		jobQueryBlock := bpv7.NewRECJobQueryBlock(bundleMessage.Submitter)
-		blocks = append(blocks, jobQueryBlock)
-	case BndlTypeNamedData:
-		namedDataBlock := bpv7.NewRECNamedDataBlock(bundleMessage.NamedData.Action, bundleMessage.NamedData.Name)
-		blocks = append(blocks, namedDataBlock)
-	default:
-		return nil, errors.New(fmt.Sprintf("Unknown bundle type: %v", bundleMessage.Type))
-	}
-
-	return blocks, nil
 }
