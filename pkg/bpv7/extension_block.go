@@ -174,8 +174,7 @@ func GetExtensionBlockManager() *ExtensionBlockManager {
 		_ = extensionBlockManager.Register(NewBundleAgeBlock(0))
 		_ = extensionBlockManager.Register(NewHopCountBlock(0))
 
-		_ = extensionBlockManager.Register(NewRECJobQueryBlock(""))
-		_ = extensionBlockManager.Register(NewRECNamedDataBlock(RECNamedDataActionPut, ""))
+		_ = extensionBlockManager.Register(NewRECBundleTypeBlock(0))
 	}
 
 	return extensionBlockManager
