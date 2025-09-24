@@ -1,6 +1,13 @@
 package rec_agent
 
-import "github.com/dtn7/dtn7-go/pkg/bpv7"
+type RECNodeType uint8
+
+const (
+	NTypeBroker    RECNodeType = 1
+	NTypeExecutor  RECNodeType = 2
+	NTypeDataStore RECNodeType = 3
+	NTypeClient    RECNodeType = 4
+)
 
 type MessageType uint8
 
@@ -29,8 +36,8 @@ type Register struct {
 
 type Fetch struct {
 	Message
-	EndpointID string           `msgpack:"endpoint_id"`
-	NodeType   bpv7.RECNodeType `msgpack:"node_type"`
+	EndpointID string      `msgpack:"endpoint_id"`
+	NodeType   RECNodeType `msgpack:"node_type"`
 }
 
 type FetchReply struct {
@@ -45,16 +52,6 @@ type BundleCreate struct {
 
 type BundleType uint8
 
-const (
-	BndlTypeJobsQuery BundleType = 1
-	BndlTypeNamedData BundleType = 2
-)
-
-type NamedData struct {
-	Action bpv7.RECNamedDataAction `msgpack:"action"`
-	Name   string                  `msgpack:"name"`
-}
-
 type BundleData struct {
 	Type        BundleType `msgpack:"type"`
 	Source      string     `msgpack:"source"`
@@ -62,8 +59,10 @@ type BundleData struct {
 	Payload     []byte     `msgpack:"payload"`
 	Success     bool       `msgpack:"success"`
 	Error       string     `msgpack:"error"`
-	// Used for bpv7.RECJobQueryBlock
+	// used by broker discovery
+	NodeType RECNodeType `msgpack:"node_type,omitempty"`
+	// used by job query/list
 	Submitter string `msgpack:"submitter,omitempty"`
-	// Used for bpv7.RECNamedDataBlock
-	NamedData NamedData `msgpack:"named_data,omitempty"`
+	// used by named data
+	NamedData string `msgpack:"named_data,omitempty"`
 }
