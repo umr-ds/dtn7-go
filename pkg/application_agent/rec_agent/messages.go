@@ -56,7 +56,7 @@ type BundleData struct {
 	Type        BundleType `msgpack:"type"`
 	Source      string     `msgpack:"source"`
 	Destination string     `msgpack:"destination"`
-	Payload     []byte     `msgpack:"payload"`
+	Payload     []byte     `msgpack:"payload,omitempty"`
 	Success     bool       `msgpack:"success"`
 	Error       string     `msgpack:"error"`
 	// used by broker discovery
