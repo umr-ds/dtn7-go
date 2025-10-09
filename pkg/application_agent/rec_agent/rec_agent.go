@@ -3,6 +3,7 @@ package rec_agent
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
+const RECBroadcastAddress = "dtn://rec.all/~"
 const RECBrokerMulticastAddress = "dtn://rec.broker/~"
 const RECDataStoreMulticastAddress = "dtn://rec.store/~"
 const RECExecutorMulticastAddress = "dtn://rec.executor/~"
@@ -26,6 +28,7 @@ type RECAgent struct {
 	listener           *net.UnixListener
 	mailboxes          *application_agent.MailboxBank
 	stopChan           chan interface{}
+	broadcastAddress   bpv7.EndpointID
 	multicastAddresses map[RECNodeType]bpv7.EndpointID
 }
 
@@ -35,6 +38,7 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 		return nil, err
 	}
 
+	broadcastAddr := bpv7.MustNewEndpointID(RECBroadcastAddress)
 	brokerAddr := bpv7.MustNewEndpointID(RECBrokerMulticastAddress)
 	storeAddr := bpv7.MustNewEndpointID(RECDataStoreMulticastAddress)
 	executorAddress := bpv7.MustNewEndpointID(RECExecutorMulticastAddress)
@@ -50,9 +54,11 @@ func NewRECAgent(listenAddress string) (*RECAgent, error) {
 		listenAddress:      unixAddr,
 		mailboxes:          application_agent.NewMailboxBank(),
 		stopChan:           make(chan interface{}),
+		broadcastAddress:   broadcastAddr,
 		multicastAddresses: multicastAddresses,
 	}
 
+	_ = agent.mailboxes.Register(broadcastAddr)
 	_ = agent.mailboxes.Register(brokerAddr)
 	_ = agent.mailboxes.Register(storeAddr)
 	_ = agent.mailboxes.Register(executorAddress)
@@ -341,6 +347,27 @@ func (agent *RECAgent) handleFetch(message *Fetch) ([]byte, error) {
 			}
 		}
 	}
+
+	// get broadcast bundles
+	if !failure {
+		mailbox, err = agent.mailboxes.GetMailbox(agent.broadcastAddress)
+		if err != nil {
+			failure = true
+			reply.Success = false
+			reply.Error = err.Error()
+		} else {
+			bundles, err = mailbox.GetAll(true)
+			if err != nil {
+				failure = true
+				reply.Success = false
+				reply.Error = err.Error()
+			} else {
+				log.WithField("bundles", bundles).Debug("Broadcast bundles")
+				allBundles = slices.Concat(allBundles, bundles)
+			}
+		}
+	}
+
 	log.WithField("bundles", allBundles).Debug("All bundles")
 
 	allBundleData := make([]BundleData, 0, len(allBundles))
