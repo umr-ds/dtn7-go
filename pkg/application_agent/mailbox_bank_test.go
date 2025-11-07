@@ -5,12 +5,14 @@ import (
 	"math/rand"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"pgregory.net/rapid"
 
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 )
 
 func initMailboxBankTest() *MailboxBank {
+	log.SetLevel(log.ErrorLevel)
 	bank := NewMailboxBank()
 	return bank
 }

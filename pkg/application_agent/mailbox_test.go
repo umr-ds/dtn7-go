@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"pgregory.net/rapid"
 
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
@@ -17,6 +18,7 @@ import (
 const mailboxTestFolderFormat = "/tmp/dtn7-go-tests/mailbox-tests/%v"
 
 func initMailboxTest(t *testing.T) (string, *Mailbox) {
+	log.SetLevel(log.ErrorLevel)
 	instanceID := fmt.Sprintf("%v%v", rand.Uint64(), rand.Uint64())
 	nodeID, _ := bpv7.NewEndpointID("dtn://test/")
 
