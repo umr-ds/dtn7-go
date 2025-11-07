@@ -46,7 +46,7 @@ func (er *EpidemicRouting) SelectPeersForForwarding(bp *store.BundleDescriptor) 
 	css = unique
 
 	log.WithFields(log.Fields{
-		"bundle":        bp.ID,
+		"bundle":        bp.Metadata.ID,
 		"new receivers": css,
 	}).Debug("EpidemicRouting selected Convergence Senders for an outgoing bundle")
 

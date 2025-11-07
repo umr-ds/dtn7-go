@@ -82,7 +82,7 @@ func (bank *MailboxBank) Deliver(bundleDescriptor *store.BundleDescriptor) error
 	bank.rwMutex.RLock()
 	defer bank.rwMutex.RUnlock()
 
-	destination := bundleDescriptor.Destination
+	destination := bundleDescriptor.Metadata.Destination
 	destinationMailbox, ok := bank.mailboxes[destination]
 	if !ok {
 		return NewNoSuchIDError(destination)

@@ -26,13 +26,13 @@ func SetOwnNodeID(nid bpv7.EndpointID) {
 
 // forwardingAsync implements the bundle forwarding procedure described in RFC9171 section 5.4
 func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
-	log.WithField("bundle", bundleDescriptor.ID.String()).Debug("Processing bundle")
+	log.WithField("bundle", bundleDescriptor.Metadata.ID.String()).Debug("Processing bundle")
 
 	// Step 1: add "Forward Pending, remove "Dispatch Pending"
 	err := bundleDescriptor.AddConstraint(store.ForwardPending)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error adding constraint to bundle")
 		return
@@ -40,7 +40,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	err = bundleDescriptor.RemoveConstraint(store.DispatchPending)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error removing constraint from bundle")
 		return
@@ -60,7 +60,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	bundle, err := bundleDescriptor.Load()
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error loading bundle from disk")
 		return
@@ -74,7 +74,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	err = bundle.AddExtensionBlock(prevNodeBlock)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error adding PreviousNodeBlock to bundle")
 	}
@@ -92,7 +92,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	err = bundleDescriptor.RemoveConstraint(store.ForwardPending)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error removing constraint from bundle")
 		return
@@ -108,7 +108,7 @@ func bundleContraindicated(bundleDescriptor *store.BundleDescriptor) {
 	err := bundleDescriptor.ResetConstraints()
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.ID,
+			"bundle": bundleDescriptor.Metadata.ID,
 			"error":  err,
 		}).Error("Error resetting bundle constraints")
 	}
