@@ -6,12 +6,14 @@ import (
 	"reflect"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"pgregory.net/rapid"
 
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 )
 
 func initTest(t *rapid.T) {
+	log.SetLevel(log.ErrorLevel)
 	nodeID, err := bpv7.NewEndpointID(rapid.StringMatching(bpv7.DtnEndpointRegexpNotNone).Draw(t, "nodeID"))
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +47,7 @@ func TestBundleInsertion(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		bdLoad, err := GetStoreSingleton().LoadBundleDescriptor(bundle.ID())
+		bdLoad, err := GetStoreSingleton().GetBundleDescriptor(bundle.ID())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -90,10 +92,7 @@ func TestConstraints(t *testing.T) {
 
 		// test constraint reset
 		addConstraints(t, bd, constraints)
-		err = bd.ResetConstraints()
-		if err != nil {
-			t.Fatal(err)
-		}
+		bd.ResetConstraints()
 		if bd.Retain || len(bd.RetentionConstraints) > 0 {
 			t.Fatal("RetentionConstraint reset failed")
 		}
@@ -120,10 +119,7 @@ func addConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constraint) 
 
 func removeConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constraint) {
 	for _, constraint := range constraints {
-		err := bd.RemoveConstraint(constraint)
-		if err != nil {
-			t.Fatal(err)
-		}
+		bd.RemoveConstraint(constraint)
 
 		if (len(bd.RetentionConstraints) == 0) && bd.Retain {
 			t.Fatal("Retention flag still set after all constraints removed")

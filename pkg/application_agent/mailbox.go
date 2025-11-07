@@ -44,7 +44,7 @@ func (mailbox *Mailbox) Deliver(bndl *store.BundleDescriptor) error {
 		return NewAlreadyDeliveredError(bid)
 	}
 
-	if _, err := store.GetStoreSingleton().LoadBundleDescriptor(bid); err != nil {
+	if _, err := store.GetStoreSingleton().GetBundleDescriptor(bid); err != nil {
 		return err
 	}
 
@@ -99,7 +99,7 @@ func (mailbox *Mailbox) Get(bid bpv7.BundleID, remove bool) (*bpv7.Bundle, error
 		return nil, NewNoSuchBundleError(bid)
 	}
 
-	bd, err := store.GetStoreSingleton().LoadBundleDescriptor(bid)
+	bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (mailbox *Mailbox) GetAll(remove bool) ([]*bpv7.Bundle, error) {
 
 	bndls := make([]*bpv7.Bundle, 0, len(mailbox.messages))
 	for bid := range mailbox.messages {
-		bd, err := store.GetStoreSingleton().LoadBundleDescriptor(bid)
+		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (mailbox *Mailbox) GetNew(remove bool) ([]*bpv7.Bundle, error) {
 			continue
 		}
 
-		bd, err := store.GetStoreSingleton().LoadBundleDescriptor(bid)
+		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +217,7 @@ func (mailbox *Mailbox) GC() {
 	defer mailbox.rwMutex.Unlock()
 
 	for bid := range mailbox.messages {
-		_, err := store.GetStoreSingleton().LoadBundleDescriptor(bid)
+		_, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
 		if err != nil {
 			delete(mailbox.messages, bid)
 		}

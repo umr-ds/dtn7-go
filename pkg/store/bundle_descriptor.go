@@ -87,22 +87,19 @@ func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) {
 }
 
 // AddConstraint adds a Constraint to this bundle and checks if it should be retained/dispatched.
-// Changes are synced to disk.
 func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
-	// check if value is valid constraint
-	if constraint < DispatchPending || constraint > ReassemblyPending {
+	if !constraint.Valid() {
 		return NewInvalidConstraint(constraint)
 	}
 
 	bd.RetentionConstraints = append(bd.RetentionConstraints, constraint)
 	bd.Retain = true
 	bd.Dispatch = constraint != ForwardPending
-	return GetStoreSingleton().updateBundleMetadata(bd.Metadata)
+	return nil
 }
 
 // RemoveConstraint removes a Constraint from this bundle and checks if it should be retained/dispatched.
-// Changes are synced to disk.
-func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
+func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) {
 	constraints := make([]Constraint, 0, len(bd.RetentionConstraints))
 	for _, existingConstraint := range bd.RetentionConstraints {
 		if existingConstraint != constraint {
@@ -112,16 +109,13 @@ func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
 	bd.RetentionConstraints = constraints
 	bd.Retain = len(bd.RetentionConstraints) > 0
 	bd.Dispatch = constraint == ForwardPending
-	return GetStoreSingleton().updateBundleMetadata(bd.Metadata)
 }
 
 // ResetConstraints removes all Constraints from this bundle.
-// Changes are synced to disk.
-func (bd *BundleDescriptor) ResetConstraints() error {
+func (bd *BundleDescriptor) ResetConstraints() {
 	bd.RetentionConstraints = make([]Constraint, 0)
 	bd.Retain = false
 	bd.Dispatch = true
-	return GetStoreSingleton().updateBundleMetadata(bd.Metadata)
 }
 
 func (bd *BundleDescriptor) String() string {

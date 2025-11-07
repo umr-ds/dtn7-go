@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -32,6 +33,8 @@ type BundleStore struct {
 	nodeID          bpv7.EndpointID
 	metadataStore   *badgerhold.Store
 	bundleDirectory string
+	bundles         map[bpv7.BundleID]*BundleDescriptor
+	stateMutex      sync.RWMutex
 }
 
 var storeSingleton *BundleStore
@@ -47,6 +50,7 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 	opts := badgerhold.DefaultOptions
 	opts.Dir = path
 	opts.ValueDir = path
+	opts.Logger = log.StandardLogger()
 
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return err
@@ -62,7 +66,22 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 		return err
 	}
 
-	storeSingleton = &BundleStore{nodeID: nodeID, metadataStore: badgerStore, bundleDirectory: bundleDirectory}
+	store := BundleStore{
+		nodeID:          nodeID,
+		metadataStore:   badgerStore,
+		bundleDirectory: bundleDirectory,
+	}
+
+	allBundles, err := store.loadAll()
+	if err != nil {
+		return err
+	}
+	store.bundles = make(map[bpv7.BundleID]*BundleDescriptor, len(allBundles))
+	for _, bndl := range allBundles {
+		store.bundles[bndl.Metadata.ID] = bndl
+	}
+
+	storeSingleton = &store
 
 	return nil
 }
@@ -82,54 +101,67 @@ func (bst *BundleStore) Shutdown() error {
 	return err
 }
 
-// LoadBundleDescriptor attempts to load the BundleDescriptor for the provided bpv7.BundleID.
-// This only loads metadata, not tha actual bundle, thus it's relatively cheap.
-// The BundleDescriptor's "Bundle" field will be nil.
-func (bst *BundleStore) LoadBundleDescriptor(bundleId bpv7.BundleID) (*BundleDescriptor, error) {
-	idString := bundleId.String()
-	metadata := BundleMetadata{}
-	err := bst.metadataStore.Get(idString, &metadata)
+func (bst *BundleStore) loadAll() ([]*BundleDescriptor, error) {
+	bundles := make([]BundleMetadata, 0)
+	err := bst.metadataStore.Find(&bundles, &badgerhold.Query{})
 	if err != nil {
 		return nil, err
 	}
-	bd := NewBundleDescriptor(metadata)
-	return bd, nil
+	descriptors := make([]*BundleDescriptor, 0, len(bundles))
+	for _, metadata := range bundles {
+		descriptors = append(descriptors, NewBundleDescriptor(metadata))
+	}
+	return descriptors, nil
+}
+
+// GetBundleDescriptor return BundleDescriptor for the given eid.
+// If no bundle with the given ID is in the store, method will return NoSuchBundleError
+func (bst *BundleStore) GetBundleDescriptor(bundleId bpv7.BundleID) (*BundleDescriptor, error) {
+	log.WithField("bid", bundleId).Debug("Getting BundleDescriptor from store")
+	bst.stateMutex.RLock()
+	defer bst.stateMutex.RUnlock()
+	bdesc, ok := bst.bundles[bundleId]
+	if !ok {
+		return nil, NewNoSuchBundleError(bundleId)
+	} else {
+		return bdesc, nil
+	}
 }
 
 // GetWithConstraint loads all BundleDescriptors which have the given Constraint set.
 // For an explanation of retention constraints, see RFC9171 Section 5.
-// TODO: rework in-memory
-func (bst *BundleStore) GetWithConstraint(constraint Constraint) ([]*BundleDescriptor, error) {
-	bundles := make([]BundleDescriptor, 0)
-	err := bst.metadataStore.Find(&bundles, badgerhold.Where("RetentionConstraints").Contains(constraint))
-	if err != nil {
-		return nil, err
+func (bst *BundleStore) GetWithConstraint(constraint Constraint) []*BundleDescriptor {
+	log.WithField("constraint", constraint).Debug("Getting BundleDescriptors with constraint")
+	bst.stateMutex.RLock()
+	defer bst.stateMutex.RUnlock()
+
+	bundles := make([]*BundleDescriptor, 0)
+	for _, bundle := range bst.bundles {
+		for _, bConstraint := range bundle.RetentionConstraints {
+			if bConstraint == constraint {
+				bundles = append(bundles, bundle)
+			}
+		}
 	}
 
-	ptrs := make([]*BundleDescriptor, len(bundles))
-	for i, bndl := range bundles {
-		ptrs[i] = &bndl
-	}
-
-	return ptrs, nil
+	return bundles
 }
 
 // GetDispatchable loads all BundleDescriptors which refer to currently dispatchable bundles.
 // That is bundles, which are not already in the process of being forwarded.
-// TODO: rework in-memory
-func (bst *BundleStore) GetDispatchable() ([]*BundleDescriptor, error) {
-	bundles := make([]BundleDescriptor, 0)
-	err := bst.metadataStore.Find(&bundles, badgerhold.Where("Dispatch").Eq(true))
-	if err != nil {
-		return nil, err
+func (bst *BundleStore) GetDispatchable() []*BundleDescriptor {
+	log.Debug("Getting dispatchable bundles")
+	bst.stateMutex.RLock()
+	defer bst.stateMutex.RUnlock()
+
+	bundles := make([]*BundleDescriptor, 0)
+	for _, bundle := range bst.bundles {
+		if bundle.Dispatch {
+			bundles = append(bundles, bundle)
+		}
 	}
 
-	ptrs := make([]*BundleDescriptor, len(bundles))
-	for i := range bundles {
-		ptrs[i] = &bundles[i]
-	}
-
-	return ptrs, nil
+	return bundles
 }
 
 func (bst *BundleStore) loadEntireBundle(filename string) (*bpv7.Bundle, error) {
@@ -203,6 +235,9 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 		return nil, err
 	}
 
+	descriptor := NewBundleDescriptor(metadata)
+	bst.bundles[bundle.ID()] = descriptor
+
 	return NewBundleDescriptor(metadata), nil
 }
 
@@ -214,29 +249,30 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 // If the bundle is already in the store, then we extract the bpv7.PreviousNodeBlock to see whe we received it from
 // and add them to the list of node that we know to already have this bundle.
 func (bst *BundleStore) InsertBundle(bundle *bpv7.Bundle) (*BundleDescriptor, error) {
-	metadata := BundleMetadata{}
-	err := bst.metadataStore.Get(bundle.ID().String(), &metadata)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"bundle": bundle.ID().String(),
-			"error":  err,
-		}).Debug("Could not get bundle from store (because it may be new)")
+	log.WithField("bundle", bundle.ID()).Debug("Inserting bundle")
+	bst.stateMutex.Lock()
+	defer bst.stateMutex.Unlock()
+
+	descriptor, ok := bst.bundles[bundle.ID()]
+	if !ok {
+		log.WithField("bundle", bundle.ID()).Debug("Bundle not in store")
 		return bst.insertNewBundle(bundle)
 	}
 
-	log.WithField("bundle", bundle.ID().String()).Debug("Bundle already exists, updating metadata")
+	log.WithField("bundle", bundle.ID()).Debug("Bundle already exists, updating metadata")
 
 	var uerr error
 	if previousNodeBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypePreviousNodeBlock); err == nil {
 		previousNode := previousNodeBlock.Value.(*bpv7.PreviousNodeBlock).Endpoint()
-		metadata.KnownHolders = append(metadata.KnownHolders, previousNode)
-		uerr = bst.updateBundleMetadata(metadata)
+		descriptor.Metadata.KnownHolders = append(descriptor.Metadata.KnownHolders, previousNode)
+		// TODO go through the descriptor
+		uerr = bst.updateBundleMetadata(descriptor.Metadata)
 	}
 	if uerr != nil {
 		return nil, uerr
 	}
 
-	return NewBundleDescriptor(metadata), nil
+	return descriptor, nil
 }
 
 func (bst *BundleStore) updateBundleMetadata(bundleMetadata BundleMetadata) error {
@@ -257,21 +293,19 @@ func (bst *BundleStore) DeleteBundle(metadata BundleMetadata) error {
 // and are not currently marked for retention.
 func (bst *BundleStore) GarbageCollect() {
 	log.Debug("Garbage collecting store")
+	bst.stateMutex.Lock()
+	defer bst.stateMutex.Unlock()
 
 	now := time.Now()
 
-	bundles := make([]BundleDescriptor, 0)
-	err := bst.metadataStore.Find(&bundles, badgerhold.Where("Expires").Lt(now).And("Retain").Eq(false))
-	if err != nil {
-		log.WithField("error", err).Error("Error getting bundles for gc")
-		return
-	}
-	log.WithField("bundles", bundles).Debug("Bundles ready for deletion")
-
-	for _, bndl := range bundles {
-		err = bst.DeleteBundle(bndl.Metadata)
-		if err != nil {
-			log.WithField("error", err).Error("Error deleting bundle")
+	for _, bundle := range bst.bundles {
+		if bundle.Metadata.Expires.Before(now) && !bundle.Retain {
+			// TODO: go through BundleDescriptor
+			err := bst.DeleteBundle(bundle.Metadata)
+			if err != nil {
+				log.WithField("error", err).Error("Error deleting bundle from disk")
+			}
+			delete(bst.bundles, bundle.Metadata.ID)
 		}
 	}
 }

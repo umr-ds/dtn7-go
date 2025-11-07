@@ -37,14 +37,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 		}).Error("Error adding constraint to bundle")
 		return
 	}
-	err = bundleDescriptor.RemoveConstraint(store.DispatchPending)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
-			"error":  err,
-		}).Error("Error removing constraint from bundle")
-		return
-	}
+	bundleDescriptor.RemoveConstraint(store.DispatchPending)
 
 	// Step 2: determine if contraindicated - whatever that means
 	// Step 2.1: Call routing algorithm(?)
@@ -89,14 +82,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	wg.Wait()
 
 	// Step 6: remove "Forward Pending"
-	err = bundleDescriptor.RemoveConstraint(store.ForwardPending)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
-			"error":  err,
-		}).Error("Error removing constraint from bundle")
-		return
-	}
+	bundleDescriptor.RemoveConstraint(store.ForwardPending)
 }
 
 func BundleForwarding(bundleDescriptor *store.BundleDescriptor) {
@@ -105,13 +91,7 @@ func BundleForwarding(bundleDescriptor *store.BundleDescriptor) {
 
 func bundleContraindicated(bundleDescriptor *store.BundleDescriptor) {
 	// TODO: is there anything else to do here?
-	err := bundleDescriptor.ResetConstraints()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
-			"error":  err,
-		}).Error("Error resetting bundle constraints")
-	}
+	bundleDescriptor.ResetConstraints()
 }
 
 func forwardBundleToPeer(mutex *sync.Mutex, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peer cla.ConvergenceSender, wg *sync.WaitGroup) {
@@ -141,11 +121,8 @@ func forwardBundleToPeer(mutex *sync.Mutex, bundleDescriptor *store.BundleDescri
 func DispatchPending() {
 	log.Debug("Dispatching bundles")
 
-	bndls, err := store.GetStoreSingleton().GetDispatchable()
-	if err != nil {
-		log.WithError(err).Error("Error dispatching pending bundles")
-		return
-	}
+	bndls := store.GetStoreSingleton().GetDispatchable()
+
 	log.WithField("bundles", bndls).Debug("Bundles to dispatch")
 
 	for _, bndl := range bndls {
