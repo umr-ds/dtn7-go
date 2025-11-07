@@ -80,7 +80,7 @@ func GetAlgorithmSingleton() Algorithm {
 func filterCLAs(bundleDescriptor *store.BundleDescriptor, clas []cla.ConvergenceSender) (filtered []cla.ConvergenceSender) {
 	filtered = make([]cla.ConvergenceSender, 0, len(clas))
 
-	sentEids := bundleDescriptor.GetAlreadySent()
+	sentEids := bundleDescriptor.GetKnownHolders()
 
 	for _, cs := range clas {
 		skip := false

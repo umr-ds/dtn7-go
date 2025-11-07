@@ -155,18 +155,18 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 		Source:             bundle.PrimaryBlock.SourceNode,
 		Destination:        bundle.PrimaryBlock.Destination,
 		ReportTo:           bundle.PrimaryBlock.ReportTo,
-		AlreadySentTo:      []bpv7.EndpointID{bst.nodeID},
+		KnownHolders:       []bpv7.EndpointID{bst.nodeID},
 		Expires:            bundle.PrimaryBlock.CreationTimestamp.DtnTime().Time().Add(lifetimeDuration),
 		SerialisedFileName: serialisedFileName,
 	}
 
 	if previousNodeBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypePreviousNodeBlock); err == nil {
 		previousNode := previousNodeBlock.Value.(*bpv7.PreviousNodeBlock).Endpoint()
-		metadata.AlreadySentTo = append(metadata.AlreadySentTo, previousNode)
+		metadata.KnownHolders = append(metadata.KnownHolders, previousNode)
 		log.WithFields(log.Fields{
 			"bundle": metadata.ID,
 			"sender": previousNode,
-		}).Debug("Added sender to AlreadySentTo")
+		}).Debug("Added sender to known holders")
 	}
 
 	err := storeSingleton.metadataStore.Insert(metadata.IDString, metadata)
@@ -229,7 +229,7 @@ func (bst *BundleStore) InsertBundle(bundle *bpv7.Bundle) (*BundleDescriptor, er
 	var uerr error
 	if previousNodeBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypePreviousNodeBlock); err == nil {
 		previousNode := previousNodeBlock.Value.(*bpv7.PreviousNodeBlock).Endpoint()
-		metadata.AlreadySentTo = append(metadata.AlreadySentTo, previousNode)
+		metadata.KnownHolders = append(metadata.KnownHolders, previousNode)
 		uerr = bst.updateBundleMetadata(metadata)
 	}
 	if uerr != nil {
