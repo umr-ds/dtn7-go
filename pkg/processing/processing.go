@@ -132,7 +132,7 @@ func forwardBundleToPeer(mutex *sync.Mutex, bundleDescriptor *store.BundleDescri
 			"cla":    peer,
 		}).Debug("Sending bundle succeeded")
 		mutex.Lock()
-		bundleDescriptor.AddAlreadySent(peer.GetPeerEndpointID())
+		bundleDescriptor.AddKnownHolder(peer.GetPeerEndpointID())
 		mutex.Unlock()
 	}
 	wg.Done()

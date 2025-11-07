@@ -21,7 +21,7 @@ type BundleMetadata struct {
 
 	// Node IDs of peers which already have this bundle
 	// By tracking these, we can avoid wasting bandwidth by sending bundles to nodes which already have them.
-	AlreadySentTo []bpv7.EndpointID
+	KnownHolders []bpv7.EndpointID
 
 	// TTL after which the bundle will be deleted - assuming Retain == false
 	Expires time.Time
@@ -64,16 +64,14 @@ func (bd *BundleDescriptor) Load() (*bpv7.Bundle, error) {
 	return GetStoreSingleton().loadEntireBundle(bd.Metadata.SerialisedFileName)
 }
 
-// GetAlreadySent gets the list of EndpointIDs which we know to already have received the bundle.
-func (bd *BundleDescriptor) GetAlreadySent() []bpv7.EndpointID {
-	// TODO: refresh current state from db
-	// TODO: give better name, since we might also know from receiving the bundle from someone else
-	return bd.Metadata.AlreadySentTo
+// GetKnownHolders gets the list of EndpointIDs which we know to already have received the bundle.
+func (bd *BundleDescriptor) GetKnownHolders() []bpv7.EndpointID {
+	return bd.Metadata.KnownHolders
 }
 
-// AddAlreadySent adds EndpointIDs to this bundle's list of known recipients.
-func (bd *BundleDescriptor) AddAlreadySent(peers ...bpv7.EndpointID) {
-	bd.Metadata.AlreadySentTo = append(bd.Metadata.AlreadySentTo, peers...)
+// AddKnownHolder adds EndpointIDs to this bundle's list of known recipients.
+func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) {
+	bd.Metadata.KnownHolders = append(bd.Metadata.KnownHolders, peers...)
 	err := GetStoreSingleton().updateBundleMetadata(bd.Metadata)
 	if err != nil {
 		log.WithFields(log.Fields{
