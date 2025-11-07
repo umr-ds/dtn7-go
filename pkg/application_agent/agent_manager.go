@@ -115,7 +115,7 @@ func (manager *Manager) Delivery(bundleDescriptor *store.BundleDescriptor) {
 		err := agent.Deliver(bundleDescriptor)
 		if err != nil {
 			log.WithFields(log.Fields{
-				"bundle": bundleDescriptor.ID,
+				"bundle": bundleDescriptor.Metadata.ID,
 				"agent":  agent,
 				"error":  err,
 			}).Debug("Error delivering bundle")
