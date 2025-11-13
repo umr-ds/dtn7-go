@@ -28,7 +28,7 @@ func SetOwnNodeID(nid bpv7.EndpointID) {
 func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	log.WithField("bundle", bundleDescriptor.Metadata.ID.String()).Debug("Processing bundle")
 
-	// Step 1: add "Forward Pending, remove "Dispatch Pending"
+	// Step 1: add "Forward Pending", remove "Dispatch Pending"
 	err := bundleDescriptor.AddConstraint(store.ForwardPending)
 	if err != nil {
 		log.WithFields(log.Fields{

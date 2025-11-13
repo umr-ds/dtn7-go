@@ -93,7 +93,7 @@ func TestConstraints(t *testing.T) {
 		// test constraint reset
 		addConstraints(t, bd, constraints)
 		bd.ResetConstraints()
-		if bd.Retain || len(bd.RetentionConstraints) > 0 {
+		if bd.Retain() || len(bd.RetentionConstraints) > 0 {
 			t.Fatal("RetentionConstraint reset failed")
 		}
 	})
@@ -108,7 +108,7 @@ func addConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constraint) 
 		if !(len(bd.RetentionConstraints) > 0) {
 			t.Fatal("Retention constraints empty after addition")
 		}
-		if !bd.Retain {
+		if !bd.Retain() {
 			t.Fatal("Retention-flag not set after addition")
 		}
 		if !(bd.RetentionConstraints[len(bd.RetentionConstraints)-1] == constraint) {
@@ -121,7 +121,7 @@ func removeConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constrain
 	for _, constraint := range constraints {
 		bd.RemoveConstraint(constraint)
 
-		if (len(bd.RetentionConstraints) == 0) && bd.Retain {
+		if (len(bd.RetentionConstraints) == 0) && bd.Retain() {
 			t.Fatal("Retention flag still set after all constraints removed")
 		}
 
