@@ -124,7 +124,11 @@ func (bst *BundleStore) GetBundleDescriptor(bundleId bpv7.BundleID) (*BundleDesc
 	if !ok {
 		return nil, NewNoSuchBundleError(bundleId)
 	} else {
-		return bdesc, nil
+		if !bdesc.Deleted() {
+			return bdesc, nil
+		} else {
+			return nil, NewNoSuchBundleError(bundleId)
+		}
 	}
 }
 
@@ -156,7 +160,7 @@ func (bst *BundleStore) GetDispatchable() []*BundleDescriptor {
 
 	bundles := make([]*BundleDescriptor, 0)
 	for _, bundle := range bst.bundles {
-		if bundle.Dispatch {
+		if bundle.Dispatch() {
 			bundles = append(bundles, bundle)
 		}
 	}
@@ -299,9 +303,9 @@ func (bst *BundleStore) GarbageCollect() {
 	now := time.Now()
 
 	for _, bundle := range bst.bundles {
-		if bundle.Metadata.Expires.Before(now) && !bundle.Retain {
+		if bundle.Metadata.Expires.Before(now) && !bundle.Retain() {
 			// TODO: go through BundleDescriptor
-			err := bst.DeleteBundle(bundle.Metadata)
+			err := bundle.Delete()
 			if err != nil {
 				log.WithField("error", err).Error("Error deleting bundle from disk")
 			}
