@@ -162,7 +162,7 @@ func (bst *BundleStore) GetDispatchable() []*BundleDescriptor {
 
 	bundles := make([]*BundleDescriptor, 0)
 	for _, bundle := range bst.bundles {
-		if dispatchable, err := bundle.Dispatch(); (err == nil) && dispatchable {
+		if bundle.Dispatch() {
 			bundles = append(bundles, bundle)
 		}
 	}
