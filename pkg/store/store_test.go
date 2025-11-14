@@ -92,8 +92,11 @@ func TestConstraints(t *testing.T) {
 
 		// test constraint reset
 		addConstraints(t, bd, constraints)
-		bd.ResetConstraints()
-		if bd.Retain() || len(bd.RetentionConstraints) > 0 {
+		err = bd.ResetConstraints()
+		if err != nil {
+			t.Fatalf("Error resetting constraints: %v", err)
+		}
+		if bd.Retain() || len(bd.retentionConstraints) > 0 {
 			t.Fatal("RetentionConstraint reset failed")
 		}
 	})
@@ -105,29 +108,32 @@ func addConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constraint) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !(len(bd.RetentionConstraints) > 0) {
+		if !(len(bd.retentionConstraints) > 0) {
 			t.Fatal("Retention constraints empty after addition")
 		}
 		if !bd.Retain() {
 			t.Fatal("Retention-flag not set after addition")
 		}
-		if !(bd.RetentionConstraints[len(bd.RetentionConstraints)-1] == constraint) {
-			t.Fatalf("Constraint %v not in descriptor constraints %v", constraint, bd.RetentionConstraints)
+		if !(bd.retentionConstraints[len(bd.retentionConstraints)-1] == constraint) {
+			t.Fatalf("Constraint %v not in descriptor constraints %v", constraint, bd.retentionConstraints)
 		}
 	}
 }
 
 func removeConstraints(t *rapid.T, bd *BundleDescriptor, constraints []Constraint) {
 	for _, constraint := range constraints {
-		bd.RemoveConstraint(constraint)
+		err := bd.RemoveConstraint(constraint)
+		if err != nil {
+			t.Fatalf("Error removing constraint: %v", err)
+		}
 
-		if (len(bd.RetentionConstraints) == 0) && bd.Retain() {
+		if (len(bd.retentionConstraints) == 0) && bd.Retain() {
 			t.Fatal("Retention flag still set after all constraints removed")
 		}
 
-		for _, conLoad := range bd.RetentionConstraints {
+		for _, conLoad := range bd.retentionConstraints {
 			if conLoad == constraint {
-				t.Fatalf("Constraint %v still present after deletion: %v", constraint, bd.RetentionConstraints)
+				t.Fatalf("Constraint %v still present after deletion: %v", constraint, bd.retentionConstraints)
 			}
 		}
 	}

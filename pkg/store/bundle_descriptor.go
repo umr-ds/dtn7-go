@@ -37,12 +37,12 @@ type BundleMetadata struct {
 // Mirrored metadata can be found in the "Metadata"-field, which s persisted to disk,
 // while the other fields contain data that doesn't make sense to persist.
 type BundleDescriptor struct {
-	// Metadata is all data which should be preserved to the database
-	Metadata   BundleMetadata
+	// metadata is all data which should be preserved to the database
+	metadata   BundleMetadata
 	stateMutex sync.RWMutex
 
-	// RetentionConstraints as defined by RFC9171 Section 5, see constraints.go for possible values
-	RetentionConstraints []Constraint
+	// retentionConstraints as defined by RFC9171 Section 5, see constraints.go for possible values
+	retentionConstraints []Constraint
 	// should this bundle be retained, i.e. protected from deletion
 	// bundle's with constraints are also currently being processed
 	retain bool
@@ -54,13 +54,24 @@ type BundleDescriptor struct {
 
 func NewBundleDescriptor(metadata BundleMetadata) *BundleDescriptor {
 	bd := BundleDescriptor{
-		Metadata:             metadata,
-		RetentionConstraints: []Constraint{DispatchPending},
+		metadata:             metadata,
+		retentionConstraints: []Constraint{DispatchPending},
 		retain:               true,
 		dispatch:             true,
 		deleted:              false,
 	}
 	return &bd
+}
+
+func (bd *BundleDescriptor) Metadata() (BundleMetadata, error) {
+	bd.stateMutex.RLock()
+	defer bd.stateMutex.RUnlock()
+
+	if bd.deleted {
+		return BundleMetadata{}, NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	return bd.metadata, nil
 }
 
 // Load loads the entire bundle from disk
@@ -69,35 +80,49 @@ func (bd *BundleDescriptor) Load() (*bpv7.Bundle, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
 
-	return GetStoreSingleton().loadEntireBundle(bd.Metadata.SerialisedFileName)
+	if bd.deleted {
+		return nil, NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	return GetStoreSingleton().loadEntireBundle(bd.metadata.SerialisedFileName)
 }
 
 // GetKnownHolders gets the list of EndpointIDs which we know to already have received the bundle.
-func (bd *BundleDescriptor) GetKnownHolders() []bpv7.EndpointID {
+func (bd *BundleDescriptor) GetKnownHolders() ([]bpv7.EndpointID, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
 
-	return bd.Metadata.KnownHolders
+	if bd.deleted {
+		return nil, NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	return bd.metadata.KnownHolders, nil
 }
 
 // AddKnownHolder adds EndpointIDs to this bundle's list of known recipients.
-func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) {
+func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
 
-	bd.Metadata.KnownHolders = append(bd.Metadata.KnownHolders, peers...)
-	err := GetStoreSingleton().updateBundleMetadata(bd.Metadata)
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	bd.metadata.KnownHolders = append(bd.metadata.KnownHolders, peers...)
+	err := GetStoreSingleton().updateBundleMetadata(bd.metadata)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bd.Metadata.IDString,
+			"bundle": bd.metadata.IDString,
 			"error":  err,
 		}).Error("Error syncing bundle metadata")
 	} else {
 		log.WithFields(log.Fields{
-			"bundle": bd.Metadata.IDString,
+			"bundle": bd.metadata.IDString,
 			"peers":  peers,
 		}).Debug("Peers added to already sent")
 	}
+
+	return nil
 }
 
 // AddConstraint adds a Constraint to this bundle and checks if it should be retained/dispatched.
@@ -105,11 +130,15 @@ func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
 
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
+
 	if !constraint.Valid() {
 		return NewInvalidConstraint(constraint)
 	}
 
-	bd.RetentionConstraints = append(bd.RetentionConstraints, constraint)
+	bd.retentionConstraints = append(bd.retentionConstraints, constraint)
 
 	// if there's at least one constraint, the bundle should be retained
 	bd.retain = true
@@ -123,13 +152,17 @@ func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
 }
 
 // RemoveConstraint removes a Constraint from this bundle and checks if it should be retained/dispatched.
-func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) {
+func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
 
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
+
 	bd.dispatch = true
-	constraints := make([]Constraint, 0, len(bd.RetentionConstraints))
-	for _, existingConstraint := range bd.RetentionConstraints {
+	constraints := make([]Constraint, 0, len(bd.retentionConstraints))
+	for _, existingConstraint := range bd.retentionConstraints {
 		if existingConstraint != constraint {
 			constraints = append(constraints, existingConstraint)
 
@@ -140,25 +173,55 @@ func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) {
 			}
 		}
 	}
-	bd.RetentionConstraints = constraints
-	bd.retain = len(bd.RetentionConstraints) > 0
+	bd.retentionConstraints = constraints
+	bd.retain = len(bd.retentionConstraints) > 0
+
+	return nil
 }
 
 // ResetConstraints removes all Constraints from this bundle.
-func (bd *BundleDescriptor) ResetConstraints() {
+func (bd *BundleDescriptor) ResetConstraints() error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
 
-	bd.RetentionConstraints = make([]Constraint, 0)
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	bd.retentionConstraints = make([]Constraint, 0)
 	bd.retain = false
 	bd.dispatch = true
+
+	return nil
 }
 
-func (bd *BundleDescriptor) Dispatch() bool {
+// HasConstraint checks if bundle as given Constraint
+func (bd *BundleDescriptor) HasConstraint(constraint Constraint) (bool, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
 
-	return bd.dispatch
+	if bd.deleted {
+		return false, NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	for _, ownConstraint := range bd.retentionConstraints {
+		if ownConstraint == constraint {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (bd *BundleDescriptor) Dispatch() (bool, error) {
+	bd.stateMutex.RLock()
+	defer bd.stateMutex.RUnlock()
+
+	if bd.deleted {
+		return false, NewBundleDeletedError(bd.metadata.ID)
+	}
+
+	return bd.dispatch, nil
 }
 
 func (bd *BundleDescriptor) Retain() bool {
@@ -179,10 +242,28 @@ func (bd *BundleDescriptor) Delete() error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
 
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
+
 	bd.deleted = true
-	return GetStoreSingleton().DeleteBundle(bd.Metadata)
+	return GetStoreSingleton().DeleteBundle(bd.metadata)
+}
+
+func (bd *BundleDescriptor) Expired() bool {
+	return bd.metadata.Expires.Before(time.Now())
+}
+
+func (bd *BundleDescriptor) ID() bpv7.BundleID {
+	bd.stateMutex.RLock()
+	defer bd.stateMutex.RUnlock()
+
+	return bd.metadata.ID
 }
 
 func (bd *BundleDescriptor) String() string {
-	return bd.Metadata.IDString
+	bd.stateMutex.RLock()
+	defer bd.stateMutex.RUnlock()
+
+	return bd.metadata.IDString
 }

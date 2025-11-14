@@ -78,7 +78,7 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 	}
 	store.bundles = make(map[bpv7.BundleID]*BundleDescriptor, len(allBundles))
 	for _, bndl := range allBundles {
-		store.bundles[bndl.Metadata.ID] = bndl
+		store.bundles[bndl.ID()] = bndl
 	}
 
 	storeSingleton = &store
@@ -141,10 +141,12 @@ func (bst *BundleStore) GetWithConstraint(constraint Constraint) []*BundleDescri
 
 	bundles := make([]*BundleDescriptor, 0)
 	for _, bundle := range bst.bundles {
-		for _, bConstraint := range bundle.RetentionConstraints {
-			if bConstraint == constraint {
-				bundles = append(bundles, bundle)
-			}
+		hasConstraint, err := bundle.HasConstraint(constraint)
+		if err != nil {
+			continue
+		}
+		if hasConstraint {
+			bundles = append(bundles, bundle)
 		}
 	}
 
@@ -160,7 +162,7 @@ func (bst *BundleStore) GetDispatchable() []*BundleDescriptor {
 
 	bundles := make([]*BundleDescriptor, 0)
 	for _, bundle := range bst.bundles {
-		if bundle.Dispatch() {
+		if dispatchable, err := bundle.Dispatch(); (err == nil) && dispatchable {
 			bundles = append(bundles, bundle)
 		}
 	}
@@ -265,15 +267,12 @@ func (bst *BundleStore) InsertBundle(bundle *bpv7.Bundle) (*BundleDescriptor, er
 
 	log.WithField("bundle", bundle.ID()).Debug("Bundle already exists, updating metadata")
 
-	var uerr error
 	if previousNodeBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypePreviousNodeBlock); err == nil {
 		previousNode := previousNodeBlock.Value.(*bpv7.PreviousNodeBlock).Endpoint()
-		descriptor.Metadata.KnownHolders = append(descriptor.Metadata.KnownHolders, previousNode)
-		// TODO go through the descriptor
-		uerr = bst.updateBundleMetadata(descriptor.Metadata)
-	}
-	if uerr != nil {
-		return nil, uerr
+		err = descriptor.AddKnownHolder(previousNode)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return descriptor, nil
@@ -300,16 +299,13 @@ func (bst *BundleStore) GarbageCollect() {
 	bst.stateMutex.Lock()
 	defer bst.stateMutex.Unlock()
 
-	now := time.Now()
-
 	for _, bundle := range bst.bundles {
-		if bundle.Metadata.Expires.Before(now) && !bundle.Retain() {
-			// TODO: go through BundleDescriptor
+		if bundle.Expired() && !bundle.Retain() {
 			err := bundle.Delete()
 			if err != nil {
-				log.WithField("error", err).Error("Error deleting bundle from disk")
+				log.WithField("error", err).Error("Error deleting bundle")
 			}
-			delete(bst.bundles, bundle.Metadata.ID)
+			delete(bst.bundles, bundle.ID())
 		}
 	}
 }
