@@ -34,7 +34,7 @@ func NewMailbox() *Mailbox {
 // Returns AlreadyDeliveredError or error from the store.
 // Returns AlreadyDeliveredError if bundle with same BundleID is already stored.
 func (mailbox *Mailbox) Deliver(bndl *store.BundleDescriptor) error {
-	bid := bndl.Metadata.ID
+	bid := bndl.ID()
 	log.WithField("bid", bid).Debug("Delivering bundle to mailbox")
 
 	mailbox.rwMutex.Lock()
@@ -217,8 +217,8 @@ func (mailbox *Mailbox) GC() {
 	defer mailbox.rwMutex.Unlock()
 
 	for bid := range mailbox.messages {
-		_, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
-		if err != nil {
+		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
+		if err != nil || bd.Deleted() {
 			delete(mailbox.messages, bid)
 		}
 	}
