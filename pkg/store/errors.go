@@ -27,3 +27,14 @@ func NewBundleDeletedError(bid bpv7.BundleID) *BundleDeletedError {
 func (err *BundleDeletedError) Error() string {
 	return fmt.Sprintf("Bundle %v has been deleted", bpv7.BundleID(*err))
 }
+
+type InvalidConstraint Constraint
+
+func NewInvalidConstraint(constraint Constraint) *InvalidConstraint {
+	ic := InvalidConstraint(constraint)
+	return &ic
+}
+
+func (ic *InvalidConstraint) Error() string {
+	return fmt.Sprintf("%v is not a valid retention constraint", int(*ic))
+}

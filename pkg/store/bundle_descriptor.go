@@ -30,7 +30,7 @@ type BundleMetadata struct {
 	SerialisedFileName string
 }
 
-// BundleDescriptor is a "lightweight" data structure which contains bundle metadata that can be kept in-memory.
+// BundleDescriptor is a lightweight data structure which contains bundle metadata that can be kept in-memory.
 // Since a bundle's payload can be arbitrarily large, it does not make sense to keep the entire bundle in memory.
 // Instead, all data that is needed for most operations is mirrored to the BundleDescriptor
 // and the Bundle itself will only be loaded from disk when absolutely necessary.
@@ -63,6 +63,8 @@ func NewBundleDescriptor(metadata BundleMetadata) *BundleDescriptor {
 	return &bd
 }
 
+// Metadata returns the Metadata associated with this bundle
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) Metadata() (BundleMetadata, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
@@ -76,6 +78,8 @@ func (bd *BundleDescriptor) Metadata() (BundleMetadata, error) {
 
 // Load loads the entire bundle from disk
 // Since bundles can be rather arbitrarily large, this can be very expensive and should only be done when necessary.
+// If bundle has been deleted, returns BundleDeletedError
+// If there's an error loading the Bundle from disk, returns the causing error.
 func (bd *BundleDescriptor) Load() (*bpv7.Bundle, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
@@ -88,6 +92,7 @@ func (bd *BundleDescriptor) Load() (*bpv7.Bundle, error) {
 }
 
 // GetKnownHolders gets the list of EndpointIDs which we know to already have received the bundle.
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) GetKnownHolders() ([]bpv7.EndpointID, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
@@ -100,6 +105,7 @@ func (bd *BundleDescriptor) GetKnownHolders() ([]bpv7.EndpointID, error) {
 }
 
 // AddKnownHolder adds EndpointIDs to this bundle's list of known recipients.
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -126,6 +132,8 @@ func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) error {
 }
 
 // AddConstraint adds a Constraint to this bundle and checks if it should be retained/dispatched.
+// If the constraint is not one of the listed constants, returns InvalidConstraint
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -152,6 +160,7 @@ func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
 }
 
 // RemoveConstraint removes a Constraint from this bundle and checks if it should be retained/dispatched.
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -180,6 +189,7 @@ func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
 }
 
 // ResetConstraints removes all Constraints from this bundle.
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) ResetConstraints() error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -196,6 +206,7 @@ func (bd *BundleDescriptor) ResetConstraints() error {
 }
 
 // HasConstraint checks if bundle as given Constraint
+// If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) HasConstraint(constraint Constraint) (bool, error) {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
@@ -213,24 +224,24 @@ func (bd *BundleDescriptor) HasConstraint(constraint Constraint) (bool, error) {
 	return false, nil
 }
 
-func (bd *BundleDescriptor) Dispatch() (bool, error) {
+// Dispatch tells, whether this bundle may be considered for dispatching
+func (bd *BundleDescriptor) Dispatch() bool {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
 
-	if bd.deleted {
-		return false, NewBundleDeletedError(bd.metadata.ID)
-	}
-
-	return bd.dispatch, nil
+	return bd.dispatch && !bd.deleted
 }
 
+// Retain tells, whether this bundle should be retained (protected from deletion)
 func (bd *BundleDescriptor) Retain() bool {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
 
-	return bd.retain
+	return bd.retain && !bd.deleted
 }
 
+// Deleted tells, whether this bundle has been deleted
+// BundleDescriptors may exist for longer than their underlying Bundle
 func (bd *BundleDescriptor) Deleted() bool {
 	bd.stateMutex.RLock()
 	defer bd.stateMutex.RUnlock()
@@ -238,6 +249,7 @@ func (bd *BundleDescriptor) Deleted() bool {
 	return bd.deleted
 }
 
+// Delete deletes this BundleDescriptor's underlying Bundle
 func (bd *BundleDescriptor) Delete() error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -250,6 +262,7 @@ func (bd *BundleDescriptor) Delete() error {
 	return GetStoreSingleton().DeleteBundle(bd.metadata)
 }
 
+// Expired tells, whether this bundle's expiry date has been passed
 func (bd *BundleDescriptor) Expired() bool {
 	return bd.metadata.Expires.Before(time.Now())
 }
