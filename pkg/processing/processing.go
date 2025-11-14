@@ -26,18 +26,25 @@ func SetOwnNodeID(nid bpv7.EndpointID) {
 
 // forwardingAsync implements the bundle forwarding procedure described in RFC9171 section 5.4
 func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
-	log.WithField("bundle", bundleDescriptor.Metadata.ID.String()).Debug("Processing bundle")
+	log.WithField("bundle", bundleDescriptor).Debug("Processing bundle")
 
 	// Step 1: add "Forward Pending", remove "Dispatch Pending"
 	err := bundleDescriptor.AddConstraint(store.ForwardPending)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
+			"bundle": bundleDescriptor,
 			"error":  err,
 		}).Error("Error adding constraint to bundle")
 		return
 	}
-	bundleDescriptor.RemoveConstraint(store.DispatchPending)
+	err = bundleDescriptor.RemoveConstraint(store.DispatchPending)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"bundle": bundleDescriptor,
+			"error":  err,
+		}).Error("Error removing constraint from bundle")
+		return
+	}
 
 	// Step 2: determine if contraindicated - whatever that means
 	// Step 2.1: Call routing algorithm(?)
@@ -53,7 +60,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	bundle, err := bundleDescriptor.Load()
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
+			"bundle": bundleDescriptor,
 			"error":  err,
 		}).Error("Error loading bundle from disk")
 		return
@@ -67,22 +74,27 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor) {
 	err = bundle.AddExtensionBlock(prevNodeBlock)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor.Metadata.ID,
+			"bundle": bundleDescriptor,
 			"error":  err,
 		}).Error("Error adding PreviousNodeBlock to bundle")
 	}
 	// TODO: Step 4.3: update bundle age block
 	// Step 4.4: call CLAs for transmission
-	var mutex sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(forwardToPeers))
 	for _, peer := range forwardToPeers {
-		go forwardBundleToPeer(&mutex, bundleDescriptor, bundle, peer, &wg)
+		go forwardBundleToPeer(bundleDescriptor, bundle, peer, &wg)
 	}
 	wg.Wait()
 
 	// Step 6: remove "Forward Pending"
-	bundleDescriptor.RemoveConstraint(store.ForwardPending)
+	err = bundleDescriptor.RemoveConstraint(store.ForwardPending)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"bundle": bundleDescriptor,
+			"error":  err,
+		}).Error("Error removing constraint from bundle")
+	}
 }
 
 func BundleForwarding(bundleDescriptor *store.BundleDescriptor) {
@@ -91,14 +103,21 @@ func BundleForwarding(bundleDescriptor *store.BundleDescriptor) {
 
 func bundleContraindicated(bundleDescriptor *store.BundleDescriptor) {
 	// TODO: is there anything else to do here?
-	bundleDescriptor.ResetConstraints()
+	err := bundleDescriptor.ResetConstraints()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"bundle": bundleDescriptor,
+			"error":  err,
+		}).Error("Error resetting bundle constraints")
+	}
 }
 
-func forwardBundleToPeer(mutex *sync.Mutex, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peer cla.ConvergenceSender, wg *sync.WaitGroup) {
+func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peer cla.ConvergenceSender, wg *sync.WaitGroup) {
 	log.WithFields(log.Fields{
 		"bundle": bundle.ID(),
 		"cla":    peer,
 	}).Info("Sending bundle to a CLA (ConvergenceSender)")
+	defer wg.Done()
 
 	if err := peer.Send(bundle); err != nil {
 		log.WithFields(log.Fields{
@@ -111,11 +130,14 @@ func forwardBundleToPeer(mutex *sync.Mutex, bundleDescriptor *store.BundleDescri
 			"bundle": bundle.ID(),
 			"cla":    peer,
 		}).Debug("Sending bundle succeeded")
-		mutex.Lock()
-		bundleDescriptor.AddKnownHolder(peer.GetPeerEndpointID())
-		mutex.Unlock()
+		err = bundleDescriptor.AddKnownHolder(peer.GetPeerEndpointID())
+		if err != nil {
+			log.WithFields(log.Fields{
+				"bundle": bundle.ID(),
+				"error":  err,
+			}).Debug("Error adding peer to known holders")
+		}
 	}
-	wg.Done()
 }
 
 func DispatchPending() {
