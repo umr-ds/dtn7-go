@@ -16,3 +16,14 @@ func NewNoSuchBundleError(bid bpv7.BundleID) *NoSuchBundleError {
 func (err *NoSuchBundleError) Error() string {
 	return fmt.Sprintf("No bundle with id %v in store", bpv7.BundleID(*err))
 }
+
+type BundleDeletedError bpv7.BundleID
+
+func NewBundleDeletedError(bid bpv7.BundleID) *BundleDeletedError {
+	err := BundleDeletedError(bid)
+	return &err
+}
+
+func (err *BundleDeletedError) Error() string {
+	return fmt.Sprintf("Bundle %v has been deleted", bpv7.BundleID(*err))
+}
