@@ -12,10 +12,11 @@ import (
 // BundleMetadata is metadata mirrored from a Bundle's primary-/extensionblocks that is used throughout the program.
 // We don't want to keep the entire bundle in memory, so we only keep this selected subset of data.
 type BundleMetadata struct {
-	ID          bpv7.BundleID
-	Source      bpv7.EndpointID
-	Destination bpv7.EndpointID
-	ReportTo    bpv7.EndpointID
+	ID                     bpv7.BundleID
+	Source                 bpv7.EndpointID
+	Destination            bpv7.EndpointID
+	ReportTo               bpv7.EndpointID
+	IsAdministrativeRecord bool
 
 	// Bundle's ID in string-form. Used as the database primary-key. Return-value of ID.String()
 	IDString string `badgerhold:"key"`

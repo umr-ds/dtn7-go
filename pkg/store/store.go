@@ -188,14 +188,15 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 	lifetimeDuration := time.Millisecond * time.Duration(bundle.PrimaryBlock.Lifetime)
 	serialisedFileName := fmt.Sprintf("%x", sha256.Sum256([]byte(bundle.ID().String())))
 	metadata := BundleMetadata{
-		ID:                 bundle.ID(),
-		IDString:           bundle.ID().String(),
-		Source:             bundle.PrimaryBlock.SourceNode,
-		Destination:        bundle.PrimaryBlock.Destination,
-		ReportTo:           bundle.PrimaryBlock.ReportTo,
-		KnownHolders:       []bpv7.EndpointID{bst.nodeID},
-		Expires:            bundle.PrimaryBlock.CreationTimestamp.DtnTime().Time().Add(lifetimeDuration),
-		SerialisedFileName: serialisedFileName,
+		ID:                     bundle.ID(),
+		IDString:               bundle.ID().String(),
+		Source:                 bundle.PrimaryBlock.SourceNode,
+		Destination:            bundle.PrimaryBlock.Destination,
+		ReportTo:               bundle.PrimaryBlock.ReportTo,
+		IsAdministrativeRecord: bundle.IsAdministrativeRecord(),
+		KnownHolders:           []bpv7.EndpointID{bst.nodeID},
+		Expires:                bundle.PrimaryBlock.CreationTimestamp.DtnTime().Time().Add(lifetimeDuration),
+		SerialisedFileName:     serialisedFileName,
 	}
 
 	if previousNodeBlock, err := bundle.ExtensionBlockByType(bpv7.BlockTypePreviousNodeBlock); err == nil {
