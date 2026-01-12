@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Markus Sommer
+// SPDX-FileCopyrightText: 2025, 2026 Markus Sommer
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -7,17 +7,17 @@ package unix_agent
 type MessageType uint8
 
 const (
-	MsgTypeGeneralResponse       MessageType = 1
-	MsgTypeRegisterEID           MessageType = 2
-	MsgTypeUnregisterEID         MessageType = 3
-	MsgTypeBundleCreate          MessageType = 4
-	MsgTypeBundleCreateResponse  MessageType = 5
-	MsgTypeListBundles           MessageType = 6
-	MsgTypeListResponse          MessageType = 7
-	MsgTypeGetBundle             MessageType = 8
-	MsgTypeGetBundleResponse     MessageType = 9
-	MsgTypeGetAllBundles         MessageType = 10
-	MsgTypeGetAllBundlesResponse MessageType = 11
+	MsgTypeGeneralResponse         MessageType = 1
+	MsgTypeRegisterEID             MessageType = 2
+	MsgTypeUnregisterEID           MessageType = 3
+	MsgTypeBundleCreate            MessageType = 4
+	MsgTypeBundleCreateResponse    MessageType = 5
+	MsgTypeListBundles             MessageType = 6
+	MsgTypeListResponse            MessageType = 7
+	MsgTypeFetchBundle             MessageType = 8
+	MsgTypeFetchBundleResponse     MessageType = 9
+	MsgTypeFetchAllBundles         MessageType = 10
+	MsgTypeFetchAllBundlesResponse MessageType = 11
 )
 
 type Message struct {
@@ -26,8 +26,7 @@ type Message struct {
 
 type GeneralResponse struct {
 	Message
-	Success bool
-	Error   string
+	Error string
 }
 
 type RegisterUnregisterMessage struct {
@@ -41,23 +40,22 @@ type BundleCreateMessage struct {
 }
 
 type BundleCreateResponse struct {
-	Message
-	Error    string
+	GeneralResponse
 	BundleID string
 }
 
-type MailboxListMessage struct {
+type ListBundles struct {
 	Message
 	Mailbox string
 	New     bool
 }
 
-type MailboxListResponse struct {
+type ListResponse struct {
 	GeneralResponse
 	Bundles []string
 }
 
-type GetBundleMessage struct {
+type FetchBundle struct {
 	Message
 	Mailbox  string
 	BundleID string
@@ -71,19 +69,19 @@ type BundleContent struct {
 	Payload       []byte
 }
 
-type GetBundleResponse struct {
+type FetchBundleResponse struct {
 	GeneralResponse
 	BundleContent
 }
 
-type GetAllBundlesMessage struct {
+type FetchAllBundles struct {
 	Message
 	Mailbox string
 	New     bool
 	Remove  bool
 }
 
-type GetAllBundlesResponse struct {
+type FetchAllBundlesResponse struct {
 	GeneralResponse
 	Bundles []BundleContent
 }
