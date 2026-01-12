@@ -171,7 +171,7 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 			log.WithField("error", err).Error("Error handling Bundle create message")
 			return
 		}
-	case MsgTypeList:
+	case MsgTypeListBundles:
 		typedMessage := MailboxListMessage{}
 		err = msgpack.Unmarshal(msgBytes, &typedMessage)
 		if err != nil {
@@ -292,10 +292,10 @@ func (agent *UNIXAgent) handleRegisterUnregister(message *RegisterUnregisterMess
 func (agent *UNIXAgent) handleBundleCreate(message *BundleCreateMessage) ([]byte, error) {
 	log.Debug("Handling bundle create")
 
-	response := GeneralResponse{
-		Message: Message{Type: MsgTypeGeneralResponse},
-		Success: true,
-		Error:   "",
+	response := BundleCreateResponse{
+		Message:  Message{Type: MsgTypeBundleCreateResponse},
+		Error:    "",
+		BundleID: "",
 	}
 
 	failed := false
@@ -303,13 +303,13 @@ func (agent *UNIXAgent) handleBundleCreate(message *BundleCreateMessage) ([]byte
 	if err != nil {
 		log.WithField("error", err).Debug("Error building bundle")
 		failed = true
-		response.Success = false
 		response.Error = err.Error()
 	}
 
 	if !failed {
 		log.WithField("bundle", bundle).Debug("Handing bundle over to manager")
-		application_agent.GetManagerSingleton().Send(bundle)
+		bundleId := application_agent.GetManagerSingleton().Send(bundle)
+		response.BundleID = bundleId.String()
 	}
 
 	log.Debug("Marshaling response")

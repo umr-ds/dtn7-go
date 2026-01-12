@@ -11,12 +11,13 @@ const (
 	MsgTypeRegisterEID           MessageType = 2
 	MsgTypeUnregisterEID         MessageType = 3
 	MsgTypeBundleCreate          MessageType = 4
-	MsgTypeList                  MessageType = 5
-	MsgTypeListResponse          MessageType = 6
-	MsgTypeGetBundle             MessageType = 7
-	MsgTypeGetBundleResponse     MessageType = 8
-	MsgTypeGetAllBundles         MessageType = 9
-	MsgTypeGetAllBundlesResponse MessageType = 10
+	MsgTypeBundleCreateResponse  MessageType = 5
+	MsgTypeListBundles           MessageType = 6
+	MsgTypeListResponse          MessageType = 7
+	MsgTypeGetBundle             MessageType = 8
+	MsgTypeGetBundleResponse     MessageType = 9
+	MsgTypeGetAllBundles         MessageType = 10
+	MsgTypeGetAllBundlesResponse MessageType = 11
 )
 
 type Message struct {
@@ -37,6 +38,12 @@ type RegisterUnregisterMessage struct {
 type BundleCreateMessage struct {
 	Message
 	Args map[string]interface{}
+}
+
+type BundleCreateResponse struct {
+	Message
+	Error    string
+	BundleID string
 }
 
 type MailboxListMessage struct {

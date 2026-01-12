@@ -321,25 +321,25 @@ func handleCreate(
 	msgBytes = make([]byte, msgLen)
 	// read reply into buffer
 	_, err = io.ReadFull(connReader, msgBytes)
-	reply := unix_agent.GeneralResponse{}
+	reply := unix_agent.BundleCreateResponse{}
 	err = msgpack.Unmarshal(msgBytes, &reply)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	if !reply.Success {
+	if reply.Error != "" {
 		_, _ = fmt.Fprintln(os.Stderr, reply.Error)
 		os.Exit(1)
 	} else {
-		fmt.Println("Success")
+		fmt.Println(reply.BundleID)
 		os.Exit(0)
 	}
 }
 
 func handleList(connReader *bufio.Reader, connWriter *bufio.Writer, mailboxID string, new bool) {
 	msg := unix_agent.MailboxListMessage{
-		Message: unix_agent.Message{Type: unix_agent.MsgTypeList},
+		Message: unix_agent.Message{Type: unix_agent.MsgTypeListBundles},
 		Mailbox: mailboxID,
 		New:     new,
 	}

@@ -124,11 +124,13 @@ func (manager *Manager) Delivery(bundleDescriptor *store.BundleDescriptor) {
 }
 
 // Send is a callback to be used by agents to send a newly created bundle
-func (manager *Manager) Send(bndl *bpv7.Bundle) {
+func (manager *Manager) Send(bndl *bpv7.Bundle) bpv7.BundleID {
+	// TODO: call the IdKeeper at a more centralised location
 	idKeeper := id_keeper.GetIdKeeperSingleton()
 	idKeeper.Update(bndl)
 	log.WithFields(log.Fields{"bundle": bndl.ID().String()}).Debug("Application agent sent bundle")
 	manager.sendCallback(bndl)
+	return bndl.ID()
 }
 
 // GC performs garbage collection on all registered agents
