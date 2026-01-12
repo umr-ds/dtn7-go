@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,9 +32,26 @@ func main() {
 
 	conf, err := parse(os.Args[1])
 	if err != nil {
-		log.WithField("error", err).Fatal("Config error")
+		log.WithField("error", err).Error("Config error")
+		return
 	}
 
+	defer stopDtnd()
+	err = startDtnd(conf)
+	if err != nil {
+		log.WithField("errors", err).Error("Errors during daemon startup")
+		return
+	}
+
+	// wait for SIGINT or SIGTERM
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	sig := <-c
+	log.WithField("signal", sig).Info("Received signal, shutting down.")
+	return
+}
+
+func startDtnd(conf config) (startupErrors error) {
 	log.SetLevel(conf.LogLevel)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp:   true,
@@ -42,11 +61,11 @@ func main() {
 	processing.SetOwnNodeID(conf.NodeID)
 
 	// Setup Store
-	err = store.InitialiseStore(conf.NodeID, conf.Store.Path)
+	err := store.InitialiseStore(conf.NodeID, conf.Store.Path)
 	if err != nil {
-		log.WithField("error", err).Fatal("Error initialising store")
+		err = NewStartupError("Error initialising store", err)
+		startupErrors = errors.Join(startupErrors, err)
 	}
-	defer store.GetStoreSingleton().Shutdown()
 
 	// Setup IdKeeper
 	id_keeper.InitializeIdKeeper()
@@ -57,39 +76,42 @@ func main() {
 	case routing.Epidemic:
 		routingAlgorithm = routing.NewEpidemicRouting()
 	default:
-		log.WithField("algorithm type", conf.Routing.Algorithm).Fatal("Unknown routing algorithm")
+		err = NewStartupError(fmt.Sprintf("%v not valid routing algorithm", conf.Routing.Algorithm), nil)
+		startupErrors = errors.Join(startupErrors, err)
 	}
 	routing.InitialiseAlgorithm(routingAlgorithm)
 
 	// Setup application agents
 	err = application_agent.InitialiseApplicationAgentManager(processing.ReceiveBundle)
 	if err != nil {
-		log.WithField("error", err).Fatal("Error initialising Application Agent Manager")
+		err = NewStartupError("Error initialising Application Agent Manager", err)
+		startupErrors = errors.Join(startupErrors, err)
 	}
-	defer application_agent.GetManagerSingleton().Shutdown()
 
 	if conf.Agents.REST.Address != "" {
 		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address)
 		err = application_agent.GetManagerSingleton().RegisterAgent(restAgent)
 		if err != nil {
-			log.WithError(err).Fatal("Error registering REST application agent")
+			err = NewStartupError("Error registering REST application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
 		}
 	}
 
 	if conf.Agents.UNIX.Socket != "" {
 		unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Socket)
 		if err != nil {
-			log.WithError(err).Fatal("Error creating UNIX application agent")
+			err = NewStartupError("Error creating UNIX application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
 		}
 		err = application_agent.GetManagerSingleton().RegisterAgent(unixAgent)
 		if err != nil {
-			log.WithError(err).Fatal("Error registering UNIX application agent")
+			err = NewStartupError("Error registering UNIX application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
 		}
 	}
 
 	// Setup CLAs
 	cla.InitialiseCLAManager(processing.ReceiveBundle, processing.NewPeer, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
-	defer cla.GetManagerSingleton().Shutdown()
 
 	for _, lstConf := range conf.Listener {
 		var listener cla.ConvergenceListener
@@ -103,30 +125,30 @@ func main() {
 		case cla.QUICL:
 			listener = quicl.NewQUICListener(lstConf.Address, lstConf.EndpointId, cla.GetManagerSingleton().NotifyReceive)
 		default:
-			log.WithField("Type", lstConf.Type).Fatal("Not valid convergence listener type")
+			err = NewStartupError(fmt.Sprintf("%v not valid convergence listener type", lstConf.Type), nil)
+			startupErrors = errors.Join(startupErrors, err)
+			continue
 		}
 
 		err = cla.GetManagerSingleton().RegisterListener(listener)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-				"type":  lstConf,
-			}).Fatal("Error starting convergence listener")
+			err = NewStartupError("Error starting convergence listener", err)
+			startupErrors = errors.Join(startupErrors, err)
 		}
 	}
 
 	// Setup neighbour discovery
 	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, cla.GetManagerSingleton().NotifyReceive)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Fatal("Error starting discovery manager")
+		err = NewStartupError("Error starting discovery manager", err)
+		startupErrors = errors.Join(startupErrors, err)
 	}
-	defer discovery.GetManagerSingleton().Shutdown()
 
 	s, err := gocron.NewScheduler()
 	if err != nil {
-		log.WithError(err).Fatal("Error initializing cron")
+		err = NewStartupError("Error initializing cron scheduler", err)
+		startupErrors = errors.Join(startupErrors, err)
+		return
 	}
 	_, err = s.NewJob(
 		gocron.DurationJob(
@@ -136,6 +158,10 @@ func main() {
 			processing.DispatchPending,
 		),
 	)
+	if err != nil {
+		err = NewStartupError("Error initializing dispatching cronjob", err)
+		startupErrors = errors.Join(startupErrors, err)
+	}
 	_, err = s.NewJob(
 		gocron.DurationJob(
 			conf.Cron.GC,
@@ -145,20 +171,46 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.WithError(err).Fatal("Error initializing dispatching cronjob")
+		err = NewStartupError("Error initializing garbage collection cronjob", err)
+		startupErrors = errors.Join(startupErrors, err)
 	}
-	s.Start()
-	defer s.Shutdown()
 
-	// wait for SIGINT or SIGTERM
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	sig := <-c
-	log.WithField("signal", sig).Info("Received signal, shutting down.")
+	s.Start()
 	return
+}
+
+func stopDtnd() {
+	discovery.GetManagerSingleton().Shutdown()
+	cla.GetManagerSingleton().Shutdown()
+	application_agent.GetManagerSingleton().Shutdown()
+	err := store.GetStoreSingleton().Shutdown()
+	if err != nil {
+		log.WithField("error", err).Error("Error shutting down store")
+	}
 }
 
 func gc() {
 	store.GetStoreSingleton().GarbageCollect()
 	application_agent.GetManagerSingleton().GC()
+}
+
+type StartupError struct {
+	msg   string
+	cause error
+}
+
+func NewStartupError(msg string, cause error) *StartupError {
+	err := StartupError{
+		msg:   msg,
+		cause: cause,
+	}
+	return &err
+}
+
+func (err *StartupError) Error() string {
+	return err.msg
+}
+
+func (err *StartupError) Unwrap() error {
+	return err.cause
 }
