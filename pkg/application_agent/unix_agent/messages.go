@@ -71,7 +71,7 @@ type BundleContent struct {
 
 type FetchBundleResponse struct {
 	GeneralResponse
-	BundleContent
+	BundleContent BundleContent
 }
 
 type FetchAllBundles struct {

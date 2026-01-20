@@ -470,7 +470,7 @@ func handleGetBundle(connReader *bufio.Reader, connWriter *bufio.Writer, mailbox
 		os.Exit(1)
 	} else {
 		if output == "stdout" {
-			_, _ = fmt.Print(string(reply.Payload))
+			_, _ = fmt.Print(string(reply.BundleContent.Payload))
 		} else {
 			file, err := os.Create(output)
 			if err != nil {
@@ -478,7 +478,7 @@ func handleGetBundle(connReader *bufio.Reader, connWriter *bufio.Writer, mailbox
 				os.Exit(1)
 			}
 			defer file.Close()
-			_, err = file.Write(reply.Payload)
+			_, err = file.Write(reply.BundleContent.Payload)
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
