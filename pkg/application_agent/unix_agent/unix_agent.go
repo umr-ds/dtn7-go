@@ -117,22 +117,30 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 
 	msgLenBytes := make([]byte, 8)
 	log.Debug("Receiving message length")
-	_, err := io.ReadFull(connReader, msgLenBytes)
+	bytesRead, err := io.ReadFull(connReader, msgLenBytes)
 	if err != nil {
-		log.WithField("error", err).Error("Failed reading 8-byte message length")
+		log.WithFields(log.Fields{
+			"error":      err,
+			"bytes read": bytesRead,
+		}).Error("Failed reading 8-byte message length")
 		return
 	}
+	log.WithField("bytes read", bytesRead).Debug("Received message length")
 
 	msgLen := binary.BigEndian.Uint64(msgLenBytes)
-	log.WithField("msgLength", msgLen).Debug("Received msgLength")
+	log.WithField("msgLength", msgLen).Debug("Decoded message length")
 
 	log.Debug("Receiving message")
 	msgBytes := make([]byte, msgLen)
-	_, err = io.ReadFull(connReader, msgBytes)
+	bytesRead, err = io.ReadFull(connReader, msgBytes)
 	if err != nil {
-		log.WithField("error", err).Error("Failed reading message")
+		log.WithFields(log.Fields{
+			"error":      err,
+			"bytes read": bytesRead,
+		}).Error("Failed reading message")
 		return
 	}
+	log.WithField("bytes read", bytesRead).Debug("Received message")
 
 	log.Debug("Unmarshalling message")
 	message := Message{}
@@ -213,6 +221,7 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 	}
 
 	replyLength := uint64(len(replyBytes))
+	log.WithField("length", replyLength).Debug("Marshaled Reply")
 	replyLengthBytes := make([]byte, 8)
 	_, err = binary.Encode(replyLengthBytes, binary.BigEndian, replyLength)
 	if err != nil {
@@ -220,21 +229,32 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 		return
 	}
 
-	_, err = connWriter.Write(replyLengthBytes)
+	bytesWritten, err := connWriter.Write(replyLengthBytes)
 	if err != nil {
-		log.WithField("error", err).Error("Error sending reply length")
+		log.WithFields(log.Fields{
+			"error":         err,
+			"bytes written": bytesWritten,
+		}).Error("Error sending reply")
 		return
 	}
-	_, err = connWriter.Write(replyBytes)
+	log.WithField("bytes written", bytesWritten).Debug("Sent reply length")
+
+	bytesWritten, err = connWriter.Write(replyBytes)
 	if err != nil {
-		log.WithField("error", err).Error("Error sending reply")
+		log.WithFields(log.Fields{
+			"error":         err,
+			"bytes written": bytesWritten,
+		}).Error("Error sending reply")
 		return
 	}
+	log.WithField("bytes written", bytesWritten).Debug("Sent reply")
+
 	err = connWriter.Flush()
 	if err != nil {
 		log.WithField("error", err).Error("Error flushing send buffer")
 		return
 	}
+	log.Debug("Flushed send buffer - done")
 }
 
 func (agent *UNIXAgent) handleRegisterUnregister(message *RegisterUnregisterMessage, register bool) ([]byte, error) {
@@ -441,10 +461,10 @@ func (agent *UNIXAgent) handleGetBundle(message *FetchBundle) ([]byte, error) {
 				"error": err,
 			}).Debug("Error retrieving bundle")
 		} else {
-			response.BundleID = bundle.ID().String()
-			response.SourceID = bundle.PrimaryBlock.SourceNode.String()
-			response.DestinationID = bundle.PrimaryBlock.Destination.String()
-			response.Payload = *bundle.PayloadBlock.Value.(*bpv7.PayloadBlock)
+			response.BundleContent.BundleID = bundle.ID().String()
+			response.BundleContent.SourceID = bundle.PrimaryBlock.SourceNode.String()
+			response.BundleContent.DestinationID = bundle.PrimaryBlock.Destination.String()
+			response.BundleContent.Payload = *bundle.PayloadBlock.Value.(*bpv7.PayloadBlock)
 		}
 	}
 
