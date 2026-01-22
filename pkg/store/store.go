@@ -47,6 +47,8 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 		log.Fatalf("Attempting to access an uninitialised store. This must never happen!")
 	}
 
+	log.Info("Initializing store")
+
 	opts := badgerhold.DefaultOptions
 	opts.Dir = path
 	opts.ValueDir = path
@@ -73,6 +75,7 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 	}
 
 	allBundles, err := store.loadAll()
+	log.WithField("bundles", len(allBundles)).Debug("Got all bundles from disk")
 	if err != nil {
 		return err
 	}
@@ -96,8 +99,11 @@ func GetStoreSingleton() *BundleStore {
 }
 
 func (bst *BundleStore) Shutdown() error {
+	log.Info("Shutting down store")
+	log.WithField("bundles", len(storeSingleton.bundles)).Debug("Bundles in store at shutdown")
 	storeSingleton = nil
 	err := bst.metadataStore.Close()
+	log.Info("Store shut down")
 	return err
 }
 
@@ -122,11 +128,13 @@ func (bst *BundleStore) GetBundleDescriptor(bundleId bpv7.BundleID) (*BundleDesc
 	defer bst.stateMutex.RUnlock()
 	bdesc, ok := bst.bundles[bundleId]
 	if !ok {
+		log.WithField("bid", bundleId).Debug("Bundle not found")
 		return nil, NewNoSuchBundleError(bundleId)
 	} else {
 		if !bdesc.Deleted() {
 			return bdesc, nil
 		} else {
+			log.WithField("bid", bundleId).Debug("Bundle has been deleted")
 			return nil, NewNoSuchBundleError(bundleId)
 		}
 	}
