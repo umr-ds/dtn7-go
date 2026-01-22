@@ -229,7 +229,7 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 			"bundle": metadata.IDString,
 			"error":  err,
 		}).Error("Error opening file to store serialised bundle. Deleting...")
-		delErr := bst.DeleteBundle(metadata)
+		delErr := bst.deleteBundle(metadata)
 		if delErr != nil {
 			log.WithFields(log.Fields{
 				"bundle": metadata.IDString,
@@ -291,9 +291,15 @@ func (bst *BundleStore) updateBundleMetadata(bundleMetadata BundleMetadata) erro
 	return bst.metadataStore.Update(bundleMetadata.IDString, bundleMetadata)
 }
 
-// DeleteBundle deletes bundle metadata from database and the serialized bundle from disk.
-// You are responsible to check if the bundle should be retained before deleting it.
-func (bst *BundleStore) DeleteBundle(metadata BundleMetadata) error {
+// deleteBundle deletes bundle from store map, metadata database and the serialized bundle from disk.
+func (bst *BundleStore) deleteBundle(metadata BundleMetadata) error {
+	log.WithField("bundle", metadata.ID).Debug("Deleting bundle")
+
+	bst.stateMutex.Lock()
+	defer bst.stateMutex.Unlock()
+
+	delete(bst.bundles, metadata.ID)
+
 	var multiErr *multierror.Error
 	multiErr = multierror.Append(multiErr, bst.metadataStore.Delete(metadata.IDString, metadata))
 	serialisedPath := filepath.Join(bst.bundleDirectory, metadata.SerialisedFileName)
@@ -314,7 +320,6 @@ func (bst *BundleStore) GarbageCollect() {
 			if err != nil {
 				log.WithField("error", err).Error("Error deleting bundle")
 			}
-			delete(bst.bundles, bundle.ID())
 		}
 	}
 }

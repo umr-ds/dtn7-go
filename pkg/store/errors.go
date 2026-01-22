@@ -38,3 +38,14 @@ func NewInvalidConstraint(constraint Constraint) *InvalidConstraint {
 func (ic *InvalidConstraint) Error() string {
 	return fmt.Sprintf("%v is not a valid retention constraint", int(*ic))
 }
+
+type HasConstraintsError []Constraint
+
+func NewHasConstraintsError(constraints []Constraint) *HasConstraintsError {
+	ce := HasConstraintsError(constraints)
+	return &ce
+}
+
+func (ce *HasConstraintsError) Error() string {
+	return fmt.Sprintf("Bundle still has constraints: %v", []Constraint(*ce))
+}

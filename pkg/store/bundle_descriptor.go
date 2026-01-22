@@ -251,6 +251,9 @@ func (bd *BundleDescriptor) Deleted() bool {
 }
 
 // Delete deletes this BundleDescriptor's underlying Bundle
+// Returns BundleDeletedError if bundle has already been deleted
+// Returns HasConstraintsError if bundle has retention constraints
+// Returns whatever errors badgerhold returns, when something goes wrong...
 func (bd *BundleDescriptor) Delete() error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
@@ -259,8 +262,12 @@ func (bd *BundleDescriptor) Delete() error {
 		return NewBundleDeletedError(bd.metadata.ID)
 	}
 
+	if len(bd.retentionConstraints) > 0 {
+		return NewHasConstraintsError(bd.retentionConstraints)
+	}
+
 	bd.deleted = true
-	return GetStoreSingleton().DeleteBundle(bd.metadata)
+	return GetStoreSingleton().deleteBundle(bd.metadata)
 }
 
 // Expired tells, whether this bundle's expiry date has been passed
