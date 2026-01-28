@@ -250,24 +250,32 @@ func (bd *BundleDescriptor) Deleted() bool {
 	return bd.deleted
 }
 
-// Delete deletes this BundleDescriptor's underlying Bundle
+// Delete tries to delete this BundleDescriptor's underlying Bundle.
+// If the bundle cannot be deleted due to constraints shouldDelete is set.
 // Returns BundleDeletedError if bundle has already been deleted
 // Returns HasConstraintsError if bundle has retention constraints
 // Returns whatever errors badgerhold returns, when something goes wrong...
 func (bd *BundleDescriptor) Delete() error {
-	bd.stateMutex.Lock()
-	defer bd.stateMutex.Unlock()
+	// keeping the lock might lead to problem because descriptor is locked before store,
+	// and it is the other way around in other places
+	// make sure deleteBundle only uses fields of metadata that are not mutated
+	if err := func() error { // set deleted
+		bd.stateMutex.Lock()
+		defer bd.stateMutex.Unlock()
+		if bd.deleted {
+			return NewBundleDeletedError(bd.metadata.ID)
+		}
 
-	if bd.deleted {
-		return NewBundleDeletedError(bd.metadata.ID)
+		if len(bd.retentionConstraints) > 0 {
+			return NewHasConstraintsError(bd.retentionConstraints)
+		}
+
+		bd.deleted = true
+		return nil
+	}(); err != nil {
+		return err
 	}
-
-	if len(bd.retentionConstraints) > 0 {
-		return NewHasConstraintsError(bd.retentionConstraints)
-	}
-
-	bd.deleted = true
-	return GetStoreSingleton().deleteBundle(bd.metadata)
+	return GetStoreSingleton().deleteBundle(bd.metadata) // do delete
 }
 
 // Expired tells, whether this bundle's expiry date has been passed
@@ -283,8 +291,6 @@ func (bd *BundleDescriptor) ID() bpv7.BundleID {
 }
 
 func (bd *BundleDescriptor) String() string {
-	bd.stateMutex.RLock()
-	defer bd.stateMutex.RUnlock()
-
+	// locking not necessary but leads to problems so do not do it
 	return bd.metadata.IDString
 }
