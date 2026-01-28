@@ -51,6 +51,8 @@ type BundleDescriptor struct {
 	dispatch bool
 	// has this bundle been deleted
 	deleted bool
+	// set to indicate that bundle should be deleted when possible
+	shouldDelete bool
 }
 
 func NewBundleDescriptor(metadata BundleMetadata) *BundleDescriptor {
@@ -160,50 +162,63 @@ func (bd *BundleDescriptor) AddConstraint(constraint Constraint) error {
 	return nil
 }
 
-// RemoveConstraint removes a Constraint from this bundle and checks if it should be retained/dispatched.
+// RemoveConstraint removes a Constraint from this bundle, checks if it should be retained/dispatched and
+// deletes it if shouldDelete is set and no constraints are left.
 // If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) RemoveConstraint(constraint Constraint) error {
-	bd.stateMutex.Lock()
-	defer bd.stateMutex.Unlock()
+	deleteBundle, err := func() (bool, error) { // store.deleteBundle leads to problems if called with descriptor locked
+		bd.stateMutex.Lock()
+		defer bd.stateMutex.Unlock()
 
-	if bd.deleted {
-		return NewBundleDeletedError(bd.metadata.ID)
-	}
+		if bd.deleted {
+			return false, NewBundleDeletedError(bd.metadata.ID)
+		}
 
-	bd.dispatch = true
-	constraints := make([]Constraint, 0, len(bd.retentionConstraints))
-	for _, existingConstraint := range bd.retentionConstraints {
-		if existingConstraint != constraint {
-			constraints = append(constraints, existingConstraint)
+		bd.dispatch = true
+		constraints := make([]Constraint, 0, len(bd.retentionConstraints))
+		for _, existingConstraint := range bd.retentionConstraints {
+			if existingConstraint != constraint {
+				constraints = append(constraints, existingConstraint)
 
-			// if the bundle has the ForwardPending constraint, then it is currently going though the processing pipeline
-			// and should not be dispatched again
-			if existingConstraint == ForwardPending {
-				bd.dispatch = false
+				// if the bundle has the ForwardPending constraint, then it is currently going though the processing pipeline
+				// and should not be dispatched again
+				if existingConstraint == ForwardPending {
+					bd.dispatch = false
+				}
 			}
 		}
+		bd.retentionConstraints = constraints
+		bd.retain = len(bd.retentionConstraints) > 0
+		return !bd.retain && bd.shouldDelete, nil
+	}()
+	if deleteBundle {
+		_ = bd.Delete()
 	}
-	bd.retentionConstraints = constraints
-	bd.retain = len(bd.retentionConstraints) > 0
-
-	return nil
+	return err
 }
 
-// ResetConstraints removes all Constraints from this bundle.
+// ResetConstraints removes all Constraints from this bundle and
+// deletes it if shouldDelete is set and no constraints are left.
 // If bundle has been deleted, returns BundleDeletedError
 func (bd *BundleDescriptor) ResetConstraints() error {
-	bd.stateMutex.Lock()
-	defer bd.stateMutex.Unlock()
+	deleteBundle, err := func() (bool, error) {
+		bd.stateMutex.Lock()
+		defer bd.stateMutex.Unlock()
 
-	if bd.deleted {
-		return NewBundleDeletedError(bd.metadata.ID)
+		if bd.deleted {
+			return false, NewBundleDeletedError(bd.metadata.ID)
+		}
+
+		bd.retentionConstraints = make([]Constraint, 0)
+		bd.retain = false
+		bd.dispatch = true
+		return bd.shouldDelete, nil
+	}()
+
+	if deleteBundle {
+		_ = bd.Delete()
 	}
-
-	bd.retentionConstraints = make([]Constraint, 0)
-	bd.retain = false
-	bd.dispatch = true
-
-	return nil
+	return err
 }
 
 // HasConstraint checks if bundle as given Constraint
@@ -259,7 +274,7 @@ func (bd *BundleDescriptor) Delete() error {
 	// keeping the lock might lead to problem because descriptor is locked before store,
 	// and it is the other way around in other places
 	// make sure deleteBundle only uses fields of metadata that are not mutated
-	if err := func() error { // set deleted
+	if err := func() error {
 		bd.stateMutex.Lock()
 		defer bd.stateMutex.Unlock()
 		if bd.deleted {
@@ -267,6 +282,7 @@ func (bd *BundleDescriptor) Delete() error {
 		}
 
 		if len(bd.retentionConstraints) > 0 {
+			bd.shouldDelete = true
 			return NewHasConstraintsError(bd.retentionConstraints)
 		}
 
