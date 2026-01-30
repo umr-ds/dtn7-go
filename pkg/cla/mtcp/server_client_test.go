@@ -42,7 +42,7 @@ func setup() {
 }
 
 func teardown() {
-	cla.GetManagerSingleton().Shutdown()
+	cla.ShutdownCLAManager()
 }
 
 func TestSendReceive(t *testing.T) {

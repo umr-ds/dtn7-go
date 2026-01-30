@@ -40,7 +40,14 @@ func GetManagerSingleton() *Manager {
 	return managerSingleton
 }
 
-func (manager *Manager) Shutdown() {
+func ShutdownAAManager() {
+	if managerSingleton == nil {
+		return
+	}
+	managerSingleton.shutdown()
+}
+
+func (manager *Manager) shutdown() {
 	managerSingleton = nil
 
 	manager.stateMutex.RLock()

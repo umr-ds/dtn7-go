@@ -69,7 +69,14 @@ func GetManagerSingleton() *Manager {
 	return managerSingleton
 }
 
-func (manager *Manager) Shutdown() {
+func ShutdownCLAManager() {
+	if managerSingleton == nil {
+		return
+	}
+	managerSingleton.shutdown()
+}
+
+func (manager *Manager) shutdown() {
 	managerSingleton = nil
 
 	manager.stateMutex.Lock()

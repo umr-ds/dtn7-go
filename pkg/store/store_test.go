@@ -26,7 +26,7 @@ func initTest(t *rapid.T) {
 }
 
 func cleanupTest(t *rapid.T) {
-	err := GetStoreSingleton().Shutdown()
+	err := ShutdownStore()
 	if err != nil {
 		t.Fatal(err)
 	}

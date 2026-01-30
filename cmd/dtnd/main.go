@@ -180,10 +180,10 @@ func startDtnd(conf config) (startupErrors error) {
 }
 
 func stopDtnd() {
-	discovery.GetManagerSingleton().Shutdown()
-	cla.GetManagerSingleton().Shutdown()
-	application_agent.GetManagerSingleton().Shutdown()
-	err := store.GetStoreSingleton().Shutdown()
+	discovery.ShutdownDiscoveryManager()
+	cla.ShutdownCLAManager()
+	application_agent.ShutdownAAManager()
+	err := store.ShutdownStore()
 	if err != nil {
 		log.WithField("error", err).Error("Error shutting down store")
 	}

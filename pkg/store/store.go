@@ -98,7 +98,14 @@ func GetStoreSingleton() *BundleStore {
 	return storeSingleton
 }
 
-func (bst *BundleStore) Shutdown() error {
+func ShutdownStore() error {
+	if storeSingleton == nil {
+		return nil
+	}
+	return storeSingleton.shutdown()
+}
+
+func (bst *BundleStore) shutdown() error {
 	log.Info("Shutting down store")
 	log.WithField("bundles", len(storeSingleton.bundles)).Debug("Bundles in store at shutdown")
 	storeSingleton = nil

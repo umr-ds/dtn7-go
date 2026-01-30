@@ -20,7 +20,7 @@ func setup() {
 }
 
 func teardown() {
-	GetManagerSingleton().Shutdown()
+	ShutdownCLAManager()
 }
 
 func TestRegisterListener(t *testing.T) {

@@ -132,7 +132,14 @@ func GetManagerSingleton() *Manager {
 	return managerSingleton
 }
 
-func (manager *Manager) Shutdown() {
+func ShutdownDiscoveryManager() {
+	if managerSingleton == nil {
+		return
+	}
+	managerSingleton.shutdown()
+}
+
+func (manager *Manager) shutdown() {
 	managerSingleton = nil
 
 	for _, c := range []chan struct{}{manager.stopChan4, manager.stopChan6} {
