@@ -316,7 +316,7 @@ func (bst *BundleStore) GarbageCollect() {
 
 	for _, bundle := range bst.bundles {
 		if bundle.Expired() && !bundle.Retain() {
-			err := bundle.Delete()
+			err := bundle.Delete(false)
 			if err != nil {
 				log.WithField("error", err).Error("Error deleting bundle")
 			}
