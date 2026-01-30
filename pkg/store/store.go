@@ -260,7 +260,7 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 	descriptor := NewBundleDescriptor(metadata)
 	bst.bundles[bundle.ID()] = descriptor
 
-	return NewBundleDescriptor(metadata), nil
+	return descriptor, nil
 }
 
 // InsertBundle inserts a bundle into the store.
