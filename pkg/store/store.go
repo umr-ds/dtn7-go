@@ -127,7 +127,7 @@ func (bst *BundleStore) loadAll() ([]*BundleDescriptor, error) {
 	return descriptors, nil
 }
 
-// GetBundleDescriptor return BundleDescriptor for the given eid.
+// GetBundleDescriptor return BundleDescriptor for the given BundleID.
 // If no bundle with the given ID is in the store, method will return NoSuchBundleError
 func (bst *BundleStore) GetBundleDescriptor(bundleId bpv7.BundleID) (*BundleDescriptor, error) {
 	log.WithField("bid", bundleId).Debug("Getting BundleDescriptor from store")
@@ -137,14 +137,14 @@ func (bst *BundleStore) GetBundleDescriptor(bundleId bpv7.BundleID) (*BundleDesc
 	if !ok {
 		log.WithField("bid", bundleId).Debug("Bundle not found")
 		return nil, NewNoSuchBundleError(bundleId)
-	} else {
-		if !bdesc.Deleted() {
-			return bdesc, nil
-		} else {
-			log.WithField("bid", bundleId).Debug("Bundle has been deleted")
-			return nil, NewNoSuchBundleError(bundleId)
-		}
 	}
+
+	if bdesc.Deleted() {
+		log.WithField("bid", bundleId).Debug("Bundle has been deleted")
+		return nil, NewNoSuchBundleError(bundleId)
+	}
+
+	return bdesc, nil
 }
 
 // GetWithConstraint loads all BundleDescriptors which have the given Constraint set.
@@ -198,7 +198,9 @@ func (bst *BundleStore) loadEntireBundle(filename string) (*bpv7.Bundle, error) 
 	return bundle, nil
 }
 
-func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor, error) {
+// insertNewBundleUnsafe stores a new bundle on disk and creates a new BundleDescriptor
+// This method is NOT threadsafe - you must have locked the stateMutex BEFORE calling this.
+func (bst *BundleStore) insertNewBundleUnsafe(bundle *bpv7.Bundle) (*BundleDescriptor, error) {
 	log.WithField("bundle", bundle.ID().String()).Debug("Inserting new bundle")
 	lifetimeDuration := time.Millisecond * time.Duration(bundle.PrimaryBlock.Lifetime)
 	serialisedFileName := fmt.Sprintf("%x", sha256.Sum256([]byte(bundle.ID().String())))
@@ -278,7 +280,7 @@ func (bst *BundleStore) InsertBundle(bundle *bpv7.Bundle) (*BundleDescriptor, er
 	descriptor, ok := bst.bundles[bundle.ID()]
 	if !ok {
 		log.WithField("bundle", bundle.ID()).Debug("Bundle not in store")
-		return bst.insertNewBundle(bundle)
+		return bst.insertNewBundleUnsafe(bundle)
 	}
 
 	log.WithField("bundle", bundle.ID()).Debug("Bundle already exists, updating metadata")
