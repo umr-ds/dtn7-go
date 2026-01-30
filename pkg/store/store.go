@@ -236,7 +236,7 @@ func (bst *BundleStore) insertNewBundle(bundle *bpv7.Bundle) (*BundleDescriptor,
 			"bundle": metadata.IDString,
 			"error":  err,
 		}).Error("Error opening file to store serialised bundle. Deleting...")
-		delErr := bst.deleteBundle(metadata)
+		delErr := bst.deleteFromDiskUnsafe(metadata)
 		if delErr != nil {
 			log.WithFields(log.Fields{
 				"bundle": metadata.IDString,
@@ -298,6 +298,16 @@ func (bst *BundleStore) updateBundleMetadata(bundleMetadata BundleMetadata) erro
 	return bst.metadataStore.Update(bundleMetadata.IDString, bundleMetadata)
 }
 
+// deleteFromDiskUnsafe deletes bundle data & metadata from disk
+// This method is NOT threadsafe - you must have locked the stateMutex BEFORE calling this.
+func (bst *BundleStore) deleteFromDiskUnsafe(metadata BundleMetadata) error {
+	var multiErr *multierror.Error
+	multiErr = multierror.Append(multiErr, bst.metadataStore.Delete(metadata.IDString, metadata))
+	serialisedPath := filepath.Join(bst.bundleDirectory, metadata.SerialisedFileName)
+	multiErr = multierror.Append(multiErr, os.Remove(serialisedPath))
+	return multiErr.ErrorOrNil()
+}
+
 // deleteBundle deletes bundle from store map, metadata database and the serialized bundle from disk.
 func (bst *BundleStore) deleteBundle(metadata BundleMetadata) error {
 	log.WithField("bundle", metadata.ID).Debug("Deleting bundle")
@@ -307,11 +317,7 @@ func (bst *BundleStore) deleteBundle(metadata BundleMetadata) error {
 
 	delete(bst.bundles, metadata.ID)
 
-	var multiErr *multierror.Error
-	multiErr = multierror.Append(multiErr, bst.metadataStore.Delete(metadata.IDString, metadata))
-	serialisedPath := filepath.Join(bst.bundleDirectory, metadata.SerialisedFileName)
-	multiErr = multierror.Append(multiErr, os.Remove(serialisedPath))
-	return multiErr.ErrorOrNil()
+	return bst.deleteFromDiskUnsafe(metadata)
 }
 
 // GarbageCollect deletes all bundles which are expired (their creation timestamp + lifetime is in the past)
