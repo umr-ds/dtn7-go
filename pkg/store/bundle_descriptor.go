@@ -289,9 +289,9 @@ func (bd *BundleDescriptor) Delete(markIfConstraint bool) error {
 		if markIfConstraint {
 			bd.shouldDelete = true
 			return nil
-		} else {
-			return NewHasConstraintsError(bd.retentionConstraints)
 		}
+
+		return NewHasConstraintsError(bd.retentionConstraints)
 	}
 
 	return bd.unsafeDelete()
