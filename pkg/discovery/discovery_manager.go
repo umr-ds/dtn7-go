@@ -193,6 +193,11 @@ func (manager *Manager) handleDiscovery(announcement Announcement, addr string) 
 		log.WithField("cType", announcement.Type).Error("Invalid cType")
 		return
 	}
+
+	if cla.GetManagerSingleton().CheckPresent(conv) {
+		return
+	}
+
 	cla.GetManagerSingleton().Register(conv)
 }
 

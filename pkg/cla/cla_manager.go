@@ -122,6 +122,48 @@ func (manager *Manager) GetListeners() []ConvergenceListener {
 	return manager.listeners
 }
 
+// checkPresent checks if a CLA has been registered with the manager
+// This method is NOT threadsafe - you must have locked the stateMutex BEFORE calling this.
+func (manager *Manager) checkPresent(cla Convergence) bool {
+	// check if this CLA is present in the manager's pendingStart-list
+	for _, pending := range manager.pendingStart {
+		if cla.Address() == pending.Address() {
+			log.WithField("cla", cla.Address()).Debug("CLA already registered as pending")
+			return true
+		}
+	}
+
+	// check if this CLA is present in the manager's receiver-list
+	if _, ok := cla.(ConvergenceReceiver); ok {
+		for _, registeredReceiver := range manager.receivers {
+			if cla.Address() == registeredReceiver.Address() {
+				log.WithField("cla", cla.Address()).Debug("CLA already registered as receiver")
+				return true
+			}
+		}
+	}
+
+	// check if this CLA is present in the manager's sender-list
+	if _, ok := cla.(ConvergenceSender); ok {
+		for _, registeredSender := range manager.senders {
+			if cla.Address() == registeredSender.Address() {
+				log.WithField("cla", cla.Address()).Debug("CLA already registered as sender")
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// CheckPresent checks if a CLA has been registered with the manager
+func (manager *Manager) CheckPresent(cla Convergence) bool {
+	manager.stateMutex.RLock()
+	defer manager.stateMutex.RUnlock()
+
+	return manager.checkPresent(cla)
+}
+
 // Register is the exported method to register a new CLA.
 // All it does is spawn the actual registration in a goroutine and return immediately
 // This is done to avoid deadlocks where another process may indefinitely wait for the CLA's
@@ -138,32 +180,9 @@ func (manager *Manager) registerAsync(cla Convergence) {
 	manager.stateMutex.Lock()
 	defer manager.stateMutex.Unlock()
 
-	// check if this CLA is present in the manager's pendingStart-list
-	for _, pending := range manager.pendingStart {
-		if cla.Address() == pending.Address() {
-			log.WithField("cla", cla.Address()).Debug("CLA already being started")
-			return
-		}
-	}
-
-	// check if this CLA is present in the manager's receiver-list
-	if _, ok := cla.(ConvergenceReceiver); ok {
-		for _, registeredReceiver := range manager.receivers {
-			if cla.Address() == registeredReceiver.Address() {
-				log.WithField("cla", cla.Address()).Debug("CLA already registered as receiver")
-				return
-			}
-		}
-	}
-
-	// check if this CLA is present in the manager's sender-list
-	if _, ok := cla.(ConvergenceSender); ok {
-		for _, registeredSender := range manager.senders {
-			if cla.Address() == registeredSender.Address() {
-				log.WithField("cla", cla.Address()).Debug("CLA already registered as sender")
-				return
-			}
-		}
+	present := manager.checkPresent(cla)
+	if present {
+		return
 	}
 
 	// add CLA to pendingStart, so that no-one else will try to start it while we're still working
