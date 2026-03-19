@@ -36,12 +36,7 @@ func (er *EpidemicRouting) NotifyReceivedAdministrativeRecord(_ *bpv7.Bundle) bo
 	return true
 }
 
-func (er *EpidemicRouting) SelectPeersForForwarding(descriptor *store.BundleDescriptor, peers []cla.ConvergenceSender) []cla.ConvergenceSender {
-	peers = filterPeers(descriptor, peers)
-	log.WithFields(log.Fields{
-		"bundle": descriptor,
-		"peers":  peers,
-	}).Debug("EpidemicRouting selected peers for outgoing bundle")
+func (er *EpidemicRouting) SelectPeersForForwarding(_ *store.BundleDescriptor, peers []cla.ConvergenceSender) []cla.ConvergenceSender {
 	return peers
 }
 

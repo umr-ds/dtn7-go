@@ -102,7 +102,6 @@ func (router *SprayAndWait) SelectPeersForForwarding(descriptor *store.BundleDes
 		return []cla.ConvergenceSender{}
 	}
 
-	peers = filterPeers(descriptor, peers)
 	nPeers := uint64(len(peers))
 	if !(nPeers > 0) {
 		log.WithField("bundle", descriptor.ID()).Debug("No suitable peers connected")

@@ -103,43 +103,6 @@ func ShutdownAlgorithm() {
 	algorithmSingleton = nil
 }
 
-// filterPeers filters the nodes which already received a Bundle.
-// It returns a list of unused ConvergenceSenders.
-func filterPeers(bundleDescriptor *store.BundleDescriptor, clas []cla.ConvergenceSender) (filtered []cla.ConvergenceSender) {
-	filtered = make([]cla.ConvergenceSender, 0, len(clas))
-
-	sentEids, err := bundleDescriptor.GetKnownHolders()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"bundle": bundleDescriptor,
-			"error":  err,
-		}).Debug("Error getting bundle's known holders")
-		return []cla.ConvergenceSender{}
-	}
-
-	for _, cs := range clas {
-		skip := false
-
-		for _, eid := range sentEids {
-			if cs.GetPeerEndpointID() == eid {
-				skip = true
-				break
-			}
-		}
-
-		if !skip {
-			filtered = append(filtered, cs)
-		}
-	}
-
-	return
-}
-
-// getFilteredPeers returns a slice ov ConvergenceSenders which connect to nodes that are not known to already hold the bundle
-func getFilteredPeers(bundleDescriptor *store.BundleDescriptor) []cla.ConvergenceSender {
-	return filterPeers(bundleDescriptor, cla.GetManagerSingleton().GetSenders())
-}
-
 // uniquePeers filters a list of ConvergenceSenders for uniqueness.
 // Sometimes you may have multiple CLAs which connect ot the same peer, and you may or may not want to send a bundle across all parallel links.
 func uniquePeers(peers []cla.ConvergenceSender) []cla.ConvergenceSender {
