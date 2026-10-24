@@ -49,33 +49,7 @@ func NewCLAManager(receiveCallback func(manager *Manager, bundle *bpv7.Bundle), 
 	return &manager
 }
 
-// managerSingleton is the singleton object which should always be used for manager access
-// We use this design pattern since there should ever only be a single manager
-var managerSingleton *Manager
-
-// InitialiseCLAManager initialises the manager-singleton
-// To access Singleton-instance, use GetManagerSingleton
-// Further calls to this function after initialisation will panic.
-func InitialiseCLAManager(manager *Manager) {
-	if managerSingleton != nil {
-		log.Fatalf("Attempting to access an uninitialised CLA manager. This must never happen!")
-	}
-
-	managerSingleton = manager
-}
-
-// GetManagerSingleton returns the manager singleton-instance.
-// Attempting to call this function before manager initialisation will cause the program to panic.
-func GetManagerSingleton() *Manager {
-	if managerSingleton == nil {
-		log.Fatalf("Attempting to access an uninitialised CLA manager. This must never happen!")
-	}
-	return managerSingleton
-}
-
 func (manager *Manager) Shutdown() {
-	managerSingleton = nil
-
 	manager.stateMutex.Lock()
 	defer manager.stateMutex.Unlock()
 

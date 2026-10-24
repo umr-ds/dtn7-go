@@ -18,7 +18,6 @@ func setup() *Manager {
 	disconnect := func(eid bpv7.EndpointID) {}
 
 	manager := NewCLAManager(receive, connect, disconnect)
-	InitialiseCLAManager(manager)
 	return manager
 }
 

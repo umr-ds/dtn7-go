@@ -24,7 +24,6 @@ func setup(receive func(manager *cla.Manager, bundle *bpv7.Bundle)) *cla.Manager
 	disconnect := func(eid bpv7.EndpointID) {}
 
 	manager := cla.NewCLAManager(receive, connect, disconnect)
-	cla.InitialiseCLAManager(manager)
 	return manager
 }
 

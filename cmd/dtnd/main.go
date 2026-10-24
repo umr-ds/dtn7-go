@@ -98,7 +98,6 @@ func startDTNd(conf config) (startupErrors error) {
 		processing.NewPeer(bundleStore, manager, eid)
 	}
 	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
-	cla.InitialiseCLAManager(claManager)
 	defer claManager.Shutdown()
 
 	for _, lstConf := range conf.Listener {
