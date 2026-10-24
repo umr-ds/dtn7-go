@@ -139,18 +139,18 @@ func startDTNd(conf config) (startupErrors error) {
 		case cla.Dummy:
 			listener = dummy_cla.NewDummyListener(lstConf.Address)
 		case cla.MTCP:
-			srv := mtcp.NewMTCPServer(lstConf.Address, lstConf.EndpointId, cla.GetManagerSingleton().NotifyReceive)
+			srv := mtcp.NewMTCPServer(lstConf.Address, lstConf.EndpointId, claManager.NotifyReceive)
 			listener = srv
-			cla.GetManagerSingleton().Register(srv)
+			claManager.Register(srv)
 		case cla.QUICL:
-			listener = quicl.NewQUICListener(lstConf.Address, lstConf.EndpointId, cla.GetManagerSingleton().NotifyReceive)
+			listener = quicl.NewQUICListener(lstConf.Address, lstConf.EndpointId, claManager.NotifyReceive)
 		default:
 			err = NewStartupError(fmt.Sprintf("%v not valid convergence listener type", lstConf.Type), nil)
 			startupErrors = errors.Join(startupErrors, err)
 			continue
 		}
 
-		err = cla.GetManagerSingleton().RegisterListener(listener)
+		err = claManager.RegisterListener(listener)
 		if err != nil {
 			err = NewStartupError("Error starting convergence listener", err)
 			startupErrors = errors.Join(startupErrors, err)
@@ -158,7 +158,7 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	// Setup neighbour discovery
-	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, cla.GetManagerSingleton().NotifyReceive)
+	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager.NotifyReceive)
 	if err != nil {
 		err = NewStartupError("Error starting discovery manager", err)
 		startupErrors = errors.Join(startupErrors, err)
