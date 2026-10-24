@@ -25,7 +25,7 @@ func initMailboxTest(t *testing.T) (*Mailbox, *store.BundleStore) {
 	}
 	store.InitialiseStore(bundleStore)
 
-	return NewMailbox(), bundleStore
+	return NewMailbox(bundleStore), bundleStore
 }
 
 func cleanupMailboxTest(t *testing.T, st *store.BundleStore) {
@@ -41,7 +41,7 @@ func TestMailbox_Deliver(t *testing.T) {
 
 		bndl := testhelpers.RandomBundle.Draw(tr, "bundle")
 
-		bdesc, err := store.GetStoreSingleton().InsertBundle(bndl)
+		bdesc, err := st.InsertBundle(bndl)
 		if err != nil {
 			tr.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func TestMailbox_Get(t *testing.T) {
 
 		bundle := testhelpers.RandomBundle.Draw(tr, fmt.Sprintf("bundle"))
 
-		descriptor, err := store.GetStoreSingleton().InsertBundle(bundle)
+		descriptor, err := st.InsertBundle(bundle)
 		if err != nil {
 			tr.Fatal(err)
 		}
@@ -118,7 +118,7 @@ func TestMailbox_All(t *testing.T) {
 			if _, ok := bundleMap[bndl.ID()]; !ok {
 				bundles = append(bundles, bndl)
 				bundleMap[bndl.ID()] = bndl
-				bdesc, err := store.GetStoreSingleton().InsertBundle(bndl)
+				bdesc, err := st.InsertBundle(bndl)
 				if err != nil {
 					tr.Fatal(err)
 				}

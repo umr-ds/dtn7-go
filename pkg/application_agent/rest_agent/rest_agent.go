@@ -81,14 +81,14 @@ type RestAgent struct {
 	mailboxes *application_agent.MailboxBank
 }
 
-func NewRestAgent(prefix, listenAddress string) (ra *RestAgent) {
+func NewRestAgent(prefix, listenAddress string, st *store.BundleStore) (ra *RestAgent) {
 	r := mux.NewRouter()
 	restRouter := r.PathPrefix(prefix).Subrouter()
 
 	ra = &RestAgent{
 		router:        restRouter,
 		listenAddress: listenAddress,
-		mailboxes:     application_agent.NewMailboxBank(),
+		mailboxes:     application_agent.NewMailboxBank(st),
 	}
 
 	ra.router.HandleFunc("/register", ra.handleRegister).Methods(http.MethodPost)

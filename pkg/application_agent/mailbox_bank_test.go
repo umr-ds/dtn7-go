@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/dtn7/dtn7-go/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"pgregory.net/rapid"
 
@@ -15,7 +16,10 @@ import (
 
 func initMailboxBankTest() *MailboxBank {
 	log.SetLevel(log.ErrorLevel)
-	bank := NewMailboxBank()
+
+	st := store.BundleStore{}
+
+	bank := NewMailboxBank(&st)
 	return bank
 }
 

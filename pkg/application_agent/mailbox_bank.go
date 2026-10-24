@@ -10,14 +10,17 @@ import (
 )
 
 type MailboxBank struct {
-	rwMutex sync.RWMutex
+	// store that this MailboxBank is associated with
+	bundleStore *store.BundleStore
+	rwMutex     sync.RWMutex
 
 	registeredIDs []bpv7.EndpointID
 	mailboxes     map[bpv7.EndpointID]*Mailbox
 }
 
-func NewMailboxBank() *MailboxBank {
+func NewMailboxBank(st *store.BundleStore) *MailboxBank {
 	bank := MailboxBank{
+		bundleStore:   st,
 		registeredIDs: make([]bpv7.EndpointID, 0),
 		mailboxes:     make(map[bpv7.EndpointID]*Mailbox),
 	}
@@ -33,7 +36,7 @@ func (bank *MailboxBank) Register(eid bpv7.EndpointID) error {
 	}
 
 	bank.registeredIDs = append(bank.registeredIDs, eid)
-	bank.mailboxes[eid] = NewMailbox()
+	bank.mailboxes[eid] = NewMailbox(bank.bundleStore)
 
 	return nil
 }

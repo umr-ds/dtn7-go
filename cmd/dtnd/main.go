@@ -98,7 +98,7 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	if conf.Agents.REST.Address != "" {
-		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address)
+		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address, bundleStore)
 		err = application_agent.GetManagerSingleton().RegisterAgent(restAgent)
 		if err != nil {
 			err = NewStartupError("Error registering REST application agent", err)
@@ -107,7 +107,7 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	if conf.Agents.UNIX.Socket != "" {
-		unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Socket)
+		unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Socket, bundleStore)
 		if err != nil {
 			err = NewStartupError("Error creating UNIX application agent", err)
 			startupErrors = errors.Join(startupErrors, err)

@@ -17,14 +17,18 @@ import (
 // The Mailbox does not store the actual bundles so we don't have to keep all bundles in memory all the time.
 // The boolean values of the messages-map signify whether the bundle has already been retrieved
 type Mailbox struct {
-	rwMutex sync.RWMutex
+	// BundleStore that this mailbox is associated with
+	bundleStore *store.BundleStore
+	rwMutex     sync.RWMutex
 
+	// map of IDs of bundles which are waiting to be retrieved
 	messages map[bpv7.BundleID]bool
 }
 
-func NewMailbox() *Mailbox {
+func NewMailbox(st *store.BundleStore) *Mailbox {
 	mailbox := Mailbox{
-		messages: make(map[bpv7.BundleID]bool),
+		bundleStore: st,
+		messages:    make(map[bpv7.BundleID]bool),
 	}
 	return &mailbox
 }
@@ -95,7 +99,7 @@ func (mailbox *Mailbox) Get(bid bpv7.BundleID, remove bool) (*bpv7.Bundle, error
 		return nil, NewNoSuchBundleError(bid)
 	}
 
-	bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
+	bd, err := mailbox.bundleStore.GetBundleDescriptor(bid)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +133,7 @@ func (mailbox *Mailbox) GetAll(remove bool) ([]*bpv7.Bundle, error) {
 
 	bndls := make([]*bpv7.Bundle, 0, len(mailbox.messages))
 	for bid := range mailbox.messages {
-		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
+		bd, err := mailbox.bundleStore.GetBundleDescriptor(bid)
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +173,7 @@ func (mailbox *Mailbox) GetNew(remove bool) ([]*bpv7.Bundle, error) {
 			continue
 		}
 
-		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
+		bd, err := mailbox.bundleStore.GetBundleDescriptor(bid)
 		if err != nil {
 			return nil, err
 		}
@@ -213,7 +217,7 @@ func (mailbox *Mailbox) GC() {
 	defer mailbox.rwMutex.Unlock()
 
 	for bid := range mailbox.messages {
-		bd, err := store.GetStoreSingleton().GetBundleDescriptor(bid)
+		bd, err := mailbox.bundleStore.GetBundleDescriptor(bid)
 		if err != nil || bd.Deleted() {
 			delete(mailbox.messages, bid)
 		}

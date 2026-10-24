@@ -29,7 +29,7 @@ type UNIXAgent struct {
 	stopChan      chan any
 }
 
-func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
+func NewUNIXAgent(listenAddress string, st *store.BundleStore) (*UNIXAgent, error) {
 	unixAddr, err := net.ResolveUnixAddr("unix", listenAddress)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
 
 	agent := UNIXAgent{
 		listenAddress: unixAddr,
-		mailboxes:     application_agent.NewMailboxBank(),
+		mailboxes:     application_agent.NewMailboxBank(st),
 		stopChan:      make(chan any),
 	}
 	return &agent, nil
