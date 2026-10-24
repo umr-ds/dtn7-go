@@ -186,7 +186,9 @@ func startDTNd(conf config) (startupErrors error) {
 			conf.Cron.GC,
 		),
 		gocron.NewTask(
-			gc,
+			func() {
+				gc(bundleStore)
+			},
 		),
 	)
 	if err != nil {
@@ -206,8 +208,8 @@ func stopDTNd() {
 	id_keeper.ShutdownIdKeeper()
 }
 
-func gc() {
-	store.GetStoreSingleton().GarbageCollect()
+func gc(st *store.BundleStore) {
+	st.GarbageCollect()
 	application_agent.GetManagerSingleton().GC()
 }
 
