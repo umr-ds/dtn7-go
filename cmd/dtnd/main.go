@@ -36,8 +36,8 @@ func main() {
 		return
 	}
 
-	defer stopDtnd()
-	err = startDtnd(conf)
+	defer stopDTNd()
+	err = startDTNd(conf)
 	if err != nil {
 		log.WithField("errors", err).Error("Errors during daemon startup")
 		return
@@ -51,7 +51,7 @@ func main() {
 	return
 }
 
-func startDtnd(conf config) (startupErrors error) {
+func startDTNd(conf config) (startupErrors error) {
 	log.SetLevel(conf.LogLevel)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp:   true,
@@ -61,11 +61,18 @@ func startDtnd(conf config) (startupErrors error) {
 	processing.SetOwnNodeID(conf.NodeID)
 
 	// Setup Store
-	err := store.InitialiseStore(conf.NodeID, conf.Store.Path)
+	bundleStore, err := store.NewStore(conf.NodeID, conf.Store.Path)
 	if err != nil {
 		err = NewStartupError("Error initialising store", err)
 		startupErrors = errors.Join(startupErrors, err)
 	}
+	store.InitialiseStore(bundleStore)
+	defer func() {
+		err := bundleStore.Shutdown()
+		if err != nil {
+			log.WithField("error", err).Error("error shutting down store")
+		}
+	}()
 
 	// Setup IdKeeper
 	id_keeper.InitializeIdKeeper()
@@ -181,16 +188,12 @@ func startDtnd(conf config) (startupErrors error) {
 	return
 }
 
-func stopDtnd() {
+func stopDTNd() {
 	discovery.ShutdownDiscoveryManager()
 	cla.ShutdownCLAManager()
 	application_agent.ShutdownAAManager()
 	routing.ShutdownAlgorithm()
 	id_keeper.ShutdownIdKeeper()
-	err := store.ShutdownStore()
-	if err != nil {
-		log.WithField("error", err).Error("Error shutting down store")
-	}
 }
 
 func gc() {

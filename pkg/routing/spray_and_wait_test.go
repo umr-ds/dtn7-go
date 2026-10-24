@@ -13,8 +13,8 @@ const (
 
 func TestSprayBasic_NotifyNewBundle(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, false)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	descriptor, bundle := testBundle(t)
 
@@ -34,8 +34,8 @@ func TestSprayBasic_NotifyNewBundle(t *testing.T) {
 
 func TestSprayBinary_NotifyNewBundle(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, true)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	descriptor, bundle := testBundle(t)
 
@@ -55,8 +55,8 @@ func TestSprayBinary_NotifyNewBundle(t *testing.T) {
 
 func TestSprayBasic_NotifyReceivedBundle(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, false)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	// test bundle with no BinarySprayBlock
 	descriptor, bundle := testBundle(t)
@@ -94,8 +94,8 @@ func TestSprayBasic_NotifyReceivedBundle(t *testing.T) {
 
 func TestSprayBinary_NotifyReceivedBundle(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, true)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	// test bundle with no BinarySprayBlock
 	descriptor, bundle := testBundle(t)
@@ -133,8 +133,8 @@ func TestSprayBinary_NotifyReceivedBundle(t *testing.T) {
 
 func TestSprayBasic_SelectPeersForForwarding(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, false)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	peers := generatePeers(15)
 
@@ -216,8 +216,8 @@ func TestSprayBasic_SelectPeersForForwarding(t *testing.T) {
 
 func TestSprayBinary_SelectPeersForForwarding(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, true)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	peers := generatePeers(15)
 
@@ -275,8 +275,8 @@ func TestSprayBinary_SelectPeersForForwarding(t *testing.T) {
 
 func TestSprayBinary_ModifyHeaders(t *testing.T) {
 	router := NewSprayAndWait(initialCopies, true)
-	setup(t, router)
-	defer teardown(t)
+	st := setup(t, router)
+	defer teardown(t, st)
 
 	peer := generatePeers(1)[0]
 	descriptor, bundle := testBundle(t)

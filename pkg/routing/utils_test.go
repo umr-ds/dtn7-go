@@ -11,21 +11,24 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func setup(t *testing.T, router Algorithm) {
+func setup(t *testing.T, router Algorithm) *store.BundleStore {
 	nodeID := bpv7.EndpointID{EndpointType: bpv7.DtnEndpoint{
 		NodeName:  "test",
 		Demux:     "",
 		IsDtnNone: false,
 	}}
-	err := store.InitialiseStore(nodeID, t.TempDir())
+	st, err := store.NewStore(nodeID, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	store.InitialiseStore(st)
 	InitialiseAlgorithm(router)
+
+	return st
 }
 
-func teardown(t *testing.T) {
-	err := store.ShutdownStore()
+func teardown(t *testing.T, st *store.BundleStore) {
+	err := st.Shutdown()
 	if err != nil {
 		t.Fatal(err)
 	}

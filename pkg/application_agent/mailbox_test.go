@@ -15,28 +15,29 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func initMailboxTest(t *testing.T) *Mailbox {
+func initMailboxTest(t *testing.T) (*Mailbox, *store.BundleStore) {
 	log.SetLevel(log.ErrorLevel)
 	nodeID, _ := bpv7.NewEndpointID("dtn://test/")
 
-	err := store.InitialiseStore(nodeID, t.TempDir())
+	bundleStore, err := store.NewStore(nodeID, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	store.InitialiseStore(bundleStore)
 
-	return NewMailbox()
+	return NewMailbox(), bundleStore
 }
 
-func cleanupMailboxTest(t *testing.T) {
-	if err := store.ShutdownStore(); err != nil {
+func cleanupMailboxTest(t *testing.T, st *store.BundleStore) {
+	if err := st.Shutdown(); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestMailbox_Deliver(t *testing.T) {
 	rapid.Check(t, func(tr *rapid.T) {
-		mailbox := initMailboxTest(t)
-		defer cleanupMailboxTest(t)
+		mailbox, st := initMailboxTest(t)
+		defer cleanupMailboxTest(t, st)
 
 		bndl := testhelpers.RandomBundle.Draw(tr, "bundle")
 
@@ -62,8 +63,8 @@ func TestMailbox_Deliver(t *testing.T) {
 
 func TestMailbox_Get(t *testing.T) {
 	rapid.Check(t, func(tr *rapid.T) {
-		mailbox := initMailboxTest(t)
-		defer cleanupMailboxTest(t)
+		mailbox, st := initMailboxTest(t)
+		defer cleanupMailboxTest(t, st)
 
 		bundle := testhelpers.RandomBundle.Draw(tr, fmt.Sprintf("bundle"))
 
@@ -104,8 +105,8 @@ func TestMailbox_Get(t *testing.T) {
 
 func TestMailbox_All(t *testing.T) {
 	rapid.Check(t, func(tr *rapid.T) {
-		mailbox := initMailboxTest(t)
-		defer cleanupMailboxTest(t)
+		mailbox, st := initMailboxTest(t)
+		defer cleanupMailboxTest(t, st)
 
 		nBundles := rapid.Uint8Min(1).Draw(tr, "Drawing number of test bundles")
 		bundles := make([]*bpv7.Bundle, 0, nBundles)

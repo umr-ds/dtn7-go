@@ -13,28 +13,31 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 )
 
-func initTest(t *testing.T) string {
+func initTest(t *testing.T) (string, *BundleStore) {
 	log.SetLevel(log.ErrorLevel)
 	dir := t.TempDir()
-	initialiseStore(t, dir)
-	return dir
+	store := initialiseStore(t, dir)
+	return dir, store
 }
 
-func initialiseStore(t *testing.T, dir string) {
+func initialiseStore(t *testing.T, dir string) *BundleStore {
 	nodeID := bpv7.EndpointID{EndpointType: bpv7.DtnEndpoint{
 		NodeName:  "test",
 		Demux:     "",
 		IsDtnNone: false,
 	}}
 
-	err := InitialiseStore(nodeID, dir)
+	store, err := NewStore(nodeID, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	InitialiseStore(store)
+
+	return store
 }
 
-func cleanupTest(t *testing.T) {
-	err := ShutdownStore()
+func cleanupTest(t *testing.T, store *BundleStore) {
+	err := store.Shutdown()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,8 +45,8 @@ func cleanupTest(t *testing.T) {
 
 func TestBundleInsertion(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		initTest(t)
-		defer cleanupTest(t)
+		_, store := initTest(t)
+		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
 		bd, err := GetStoreSingleton().InsertBundle(bundle)
@@ -73,8 +76,8 @@ func TestBundleInsertion(t *testing.T) {
 
 func TestBundleDeletion(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		initTest(t)
-		defer cleanupTest(t)
+		_, store := initTest(t)
+		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
 		bd, err := GetStoreSingleton().InsertBundle(bundle)
@@ -106,8 +109,8 @@ func TestBundleDeletion(t *testing.T) {
 
 func TestLoadFromDisk(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		dir := initTest(t)
-		defer cleanupTest(t)
+		dir, store := initTest(t)
+		defer cleanupTest(t, store)
 
 		// generate bundle and add it to the store
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
@@ -117,7 +120,7 @@ func TestLoadFromDisk(t *testing.T) {
 		}
 
 		// shut down store and restart it, so that data has to be loaded from disk
-		err = ShutdownStore()
+		err = store.Shutdown()
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -146,8 +149,8 @@ func TestLoadFromDisk(t *testing.T) {
 
 func TestConstraints(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		initTest(t)
-		defer cleanupTest(t)
+		_, store := initTest(t)
+		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
 		bd, err := GetStoreSingleton().InsertBundle(bundle)
@@ -181,8 +184,8 @@ func TestConstraints(t *testing.T) {
 
 func Test_loadExtensionBlocks(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		initTest(t)
-		defer cleanupTest(t)
+		_, store := initTest(t)
+		defer cleanupTest(t, store)
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
 		bp, err := GetStoreSingleton().InsertBundle(bundle)
 		if err != nil {

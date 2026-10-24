@@ -38,35 +38,24 @@ type BundleStore struct {
 	stateMutex      sync.RWMutex
 }
 
-var storeSingleton *BundleStore
-
-// InitialiseStore initialises the store singleton
-// To access Singleton-instance, use GetStoreSingleton
-// Further calls to this function after initialisation will panic.
-func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
-	if storeSingleton != nil {
-		log.Fatalf("Attempting to access an uninitialised store. This must never happen!")
-	}
-
-	log.Info("Initializing store")
-
+func NewStore(nodeID bpv7.EndpointID, path string) (*BundleStore, error) {
 	opts := badgerhold.DefaultOptions
 	opts.Dir = path
 	opts.ValueDir = path
 	opts.Logger = log.StandardLogger()
 
 	if err := os.MkdirAll(path, 0700); err != nil {
-		return err
+		return nil, err
 	}
 
 	badgerStore, err := badgerhold.Open(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	bundleDirectory := filepath.Join(path, "bundles")
 	if err := os.MkdirAll(bundleDirectory, 0700); err != nil {
-		return err
+		return nil, err
 	}
 
 	store := BundleStore{
@@ -78,16 +67,28 @@ func InitialiseStore(nodeID bpv7.EndpointID, path string) error {
 	allBundles, err := store.loadAll()
 	log.WithField("bundles", len(allBundles)).Debug("Got all bundles from disk")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	store.bundles = make(map[bpv7.BundleID]*BundleDescriptor, len(allBundles))
 	for _, bundle := range allBundles {
 		store.bundles[bundle.ID()] = bundle
 	}
 
-	storeSingleton = &store
+	return &store, nil
+}
 
-	return nil
+var storeSingleton *BundleStore
+
+// InitialiseStore initialises the store singleton
+// To access Singleton-instance, use GetStoreSingleton
+// Further calls to this function after initialisation will panic.
+func InitialiseStore(store *BundleStore) {
+	if storeSingleton != nil {
+		log.Fatalf("Attempting to access an uninitialised store. This must never happen!")
+	}
+
+	log.Info("Initializing store")
+	storeSingleton = store
 }
 
 // GetStoreSingleton returns the store singleton-instance.
@@ -99,13 +100,6 @@ func GetStoreSingleton() *BundleStore {
 	return storeSingleton
 }
 
-func ShutdownStore() error {
-	if storeSingleton == nil {
-		return nil
-	}
-	return storeSingleton.shutdown()
-}
-
 func closeWithError(c io.Closer) {
 	err := c.Close()
 	if err != nil {
@@ -113,7 +107,7 @@ func closeWithError(c io.Closer) {
 	}
 }
 
-func (bst *BundleStore) shutdown() error {
+func (bst *BundleStore) Shutdown() error {
 	log.Info("Shutting down store")
 	log.WithField("bundles", len(storeSingleton.bundles)).Debug("Bundles in store at shutdown")
 	storeSingleton = nil
