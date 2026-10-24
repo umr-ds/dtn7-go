@@ -12,22 +12,24 @@ import (
 	"pgregory.net/rapid"
 )
 
-func setup() {
+func setup() *Manager {
 	receive := func(bundle *bpv7.Bundle) {}
 	connect := func(eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
-	InitialiseCLAManager(receive, connect, disconnect)
+	manager := NewCLAManager(receive, connect, disconnect)
+	InitialiseCLAManager(manager)
+	return manager
 }
 
-func teardown() {
-	ShutdownCLAManager()
+func teardown(manager *Manager) {
+	manager.Shutdown()
 }
 
 func TestRegisterListener(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		setup()
-		defer teardown()
+		manager := setup()
+		defer teardown(manager)
 
 		numberOfListeners := rapid.Uint8Max(10).Draw(t, "Number of Listeners")
 		listeners := make([]*dummy_cla.DummyListener, numberOfListeners)
@@ -37,13 +39,13 @@ func TestRegisterListener(t *testing.T) {
 		}
 
 		for _, listener := range listeners {
-			err := GetManagerSingleton().RegisterListener(listener)
+			err := manager.RegisterListener(listener)
 			if err != nil {
 				t.Fatal(fmt.Sprintf("Error registering listener %v: %v", listener.Address(), err))
 			}
 		}
 
-		initialisedListeners := GetManagerSingleton().GetListeners()
+		initialisedListeners := manager.GetListeners()
 		for _, listener := range listeners {
 			present := false
 			for _, initialized := range initialisedListeners {
@@ -61,8 +63,8 @@ func TestRegisterListener(t *testing.T) {
 
 func TestRegisterSender(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		setup()
-		defer teardown()
+		manager := setup()
+		defer teardown(manager)
 
 		numberOfCLAs := rapid.Uint8Max(100).Draw(t, "Number of CLAs")
 		clas := make([]Convergence, numberOfCLAs)
@@ -75,13 +77,13 @@ func TestRegisterSender(t *testing.T) {
 			eid := testhelpers.RandomEndpointID.Draw(t, fmt.Sprintf("CLA %v", i))
 			cla, _ := dummy_cla.NewDummyCLAPair(eid, eid, noop)
 			clas[i] = cla
-			GetManagerSingleton().Register(cla)
+			manager.Register(cla)
 		}
 
 		time.Sleep(time.Millisecond * 10)
 
 		for _, cla := range clas {
-			senders := GetManagerSingleton().GetSenders()
+			senders := manager.GetSenders()
 			present := false
 			for _, sender := range senders {
 				if sender.Address() == cla.Address() {

@@ -35,18 +35,7 @@ type Manager struct {
 	disconnectCallback func(eid bpv7.EndpointID)
 }
 
-// managerSingleton is the singleton object which should always be used for manager access
-// We use this design pattern since there should ever only be a single manager
-var managerSingleton *Manager
-
-// InitialiseCLAManager initialises the manager-singleton
-// To access Singleton-instance, use GetManagerSingleton
-// Further calls to this function after initialisation will panic.
-func InitialiseCLAManager(receiveCallback func(bundle *bpv7.Bundle), connectCallback func(eid bpv7.EndpointID), disconnectCallback func(eid bpv7.EndpointID)) {
-	if managerSingleton != nil {
-		log.Fatalf("Attempting to access an uninitialised CLA manager. This must never happen!")
-	}
-
+func NewCLAManager(receiveCallback func(bundle *bpv7.Bundle), connectCallback func(eid bpv7.EndpointID), disconnectCallback func(eid bpv7.EndpointID)) *Manager {
 	manager := Manager{
 		receivers:          make([]ConvergenceReceiver, 0, 10),
 		senders:            make([]ConvergenceSender, 0, 10),
@@ -57,7 +46,22 @@ func InitialiseCLAManager(receiveCallback func(bundle *bpv7.Bundle), connectCall
 		disconnectCallback: disconnectCallback,
 		pendingRemoval:     make(map[string]bool),
 	}
-	managerSingleton = &manager
+	return &manager
+}
+
+// managerSingleton is the singleton object which should always be used for manager access
+// We use this design pattern since there should ever only be a single manager
+var managerSingleton *Manager
+
+// InitialiseCLAManager initialises the manager-singleton
+// To access Singleton-instance, use GetManagerSingleton
+// Further calls to this function after initialisation will panic.
+func InitialiseCLAManager(manager *Manager) {
+	if managerSingleton != nil {
+		log.Fatalf("Attempting to access an uninitialised CLA manager. This must never happen!")
+	}
+
+	managerSingleton = manager
 }
 
 // GetManagerSingleton returns the manager singleton-instance.
@@ -69,14 +73,7 @@ func GetManagerSingleton() *Manager {
 	return managerSingleton
 }
 
-func ShutdownCLAManager() {
-	if managerSingleton == nil {
-		return
-	}
-	managerSingleton.shutdown()
-}
-
-func (manager *Manager) shutdown() {
+func (manager *Manager) Shutdown() {
 	managerSingleton = nil
 
 	manager.stateMutex.Lock()

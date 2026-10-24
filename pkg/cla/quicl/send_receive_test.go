@@ -19,21 +19,23 @@ const (
 	maxBundles  = 10
 )
 
-func setup() {
+func setup() *cla.Manager {
 	receive := func(bundle *bpv7.Bundle) {}
 	connect := func(eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
-	cla.InitialiseCLAManager(receive, connect, disconnect)
+	manager := cla.NewCLAManager(receive, connect, disconnect)
+	cla.InitialiseCLAManager(manager)
+	return manager
 }
 
-func teardown() {
-	cla.ShutdownCLAManager()
+func teardown(manager *cla.Manager) {
+	manager.Shutdown()
 }
 
 func TestSingle(t *testing.T) {
-	setup()
-	defer teardown()
+	manager := setup()
+	defer teardown(manager)
 
 	timeout, err := time.ParseDuration(testTimeout)
 	if err != nil {

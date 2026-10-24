@@ -123,13 +123,15 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	// Setup CLAs
-	cla.InitialiseCLAManager(func(bundle *bpv7.Bundle) {
+	claManager := cla.NewCLAManager(func(bundle *bpv7.Bundle) {
 		// create partial function by binding bundleStore
 		processing.ReceiveBundle(bundleStore, bundle)
 	}, func(eid bpv7.EndpointID) {
 		// create partial function by binding bundleStore
 		processing.NewPeer(bundleStore, eid)
 	}, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
+	cla.InitialiseCLAManager(claManager)
+	defer claManager.Shutdown()
 
 	for _, lstConf := range conf.Listener {
 		var listener cla.ConvergenceListener
@@ -201,7 +203,6 @@ func startDTNd(conf config) (startupErrors error) {
 
 func stopDTNd() {
 	discovery.ShutdownDiscoveryManager()
-	cla.ShutdownCLAManager()
 	application_agent.ShutdownAAManager()
 	routing.ShutdownAlgorithm()
 	id_keeper.ShutdownIdKeeper()

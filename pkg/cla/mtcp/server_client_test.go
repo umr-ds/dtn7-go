@@ -17,22 +17,24 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/cla"
 )
 
-func setup() {
+func setup() *cla.Manager {
 	receive := func(bundle *bpv7.Bundle) {}
 	connect := func(eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
-	cla.InitialiseCLAManager(receive, connect, disconnect)
+	manager := cla.NewCLAManager(receive, connect, disconnect)
+	cla.InitialiseCLAManager(manager)
+	return manager
 }
 
-func teardown() {
-	cla.ShutdownCLAManager()
+func teardown(manager *cla.Manager) {
+	manager.Shutdown()
 }
 
 func TestSendReceive(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		setup()
-		defer teardown()
+		manager := setup()
+		defer teardown(manager)
 
 		port := testhelpers.RandomPort(t, "tcp")
 		numberOfClients := rapid.IntRange(1, 25).Draw(t, "Number of Clients")
