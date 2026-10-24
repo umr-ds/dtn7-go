@@ -31,7 +31,6 @@ func initialiseStore(t *testing.T, dir string) *BundleStore {
 	if err != nil {
 		t.Fatal(err)
 	}
-	InitialiseStore(store)
 
 	return store
 }

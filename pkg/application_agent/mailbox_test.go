@@ -23,7 +23,6 @@ func initMailboxTest(t *testing.T) (*Mailbox, *store.BundleStore) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.InitialiseStore(bundleStore)
 
 	return NewMailbox(bundleStore), bundleStore
 }

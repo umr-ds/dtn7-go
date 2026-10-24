@@ -21,7 +21,6 @@ func setup(t *testing.T, router Algorithm) *store.BundleStore {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.InitialiseStore(st)
 	InitialiseAlgorithm(router)
 
 	return st

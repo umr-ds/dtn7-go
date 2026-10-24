@@ -67,7 +67,6 @@ func startDTNd(conf config) (startupErrors error) {
 		err = NewStartupError("Error initialising store", err)
 		startupErrors = errors.Join(startupErrors, err)
 	}
-	store.InitialiseStore(bundleStore)
 	defer func() {
 		err := bundleStore.Shutdown()
 		if err != nil {

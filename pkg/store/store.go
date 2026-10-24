@@ -6,9 +6,6 @@
 // Package store implements on-disk persistence for bundles and their metadata
 // Uses Badgerhold (github.com/timshannon/badgerhold) for persisting metadata.
 // Bundles are stored in CBOR-serialized form on-disk.
-//
-// Since there should only be a single BundleStore active at any time, this package employs the singleton pattern.
-// Use InitialiseStore and GetStoreSingleton.
 package store
 
 import (
@@ -77,29 +74,6 @@ func NewStore(nodeID bpv7.EndpointID, path string) (*BundleStore, error) {
 	return &store, nil
 }
 
-var storeSingleton *BundleStore
-
-// InitialiseStore initialises the store singleton
-// To access Singleton-instance, use GetStoreSingleton
-// Further calls to this function after initialisation will panic.
-func InitialiseStore(store *BundleStore) {
-	if storeSingleton != nil {
-		log.Fatalf("Attempting to access an uninitialised store. This must never happen!")
-	}
-
-	log.Info("Initializing store")
-	storeSingleton = store
-}
-
-// GetStoreSingleton returns the store singleton-instance.
-// Attempting to call this function before store initialisation will cause the program to panic.
-func GetStoreSingleton() *BundleStore {
-	if storeSingleton == nil {
-		log.Fatal("Attempting to access an uninitialised store. This must never happen!")
-	}
-	return storeSingleton
-}
-
 func closeWithError(c io.Closer) {
 	err := c.Close()
 	if err != nil {
@@ -109,8 +83,7 @@ func closeWithError(c io.Closer) {
 
 func (bst *BundleStore) Shutdown() error {
 	log.Info("Shutting down store")
-	log.WithField("bundles", len(storeSingleton.bundles)).Debug("Bundles in store at shutdown")
-	storeSingleton = nil
+	log.WithField("bundles", len(bst.bundles)).Debug("Bundles in store at shutdown")
 	err := bst.metadataStore.Close()
 	log.Info("Store shut down")
 	return err
@@ -253,7 +226,7 @@ func (bst *BundleStore) insertNewBundleUnsafe(bundle *bpv7.Bundle) (*BundleDescr
 		}).Debug("Added sender to known holders")
 	}
 
-	err := storeSingleton.metadataStore.Insert(metadata.IDString, metadata)
+	err := bst.metadataStore.Insert(metadata.IDString, metadata)
 	if err != nil {
 		return nil, err
 	}
