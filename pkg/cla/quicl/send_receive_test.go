@@ -19,8 +19,8 @@ const (
 	maxBundles  = 10
 )
 
-func setup(receive func(bundle *bpv7.Bundle)) *cla.Manager {
-	connect := func(eid bpv7.EndpointID) {}
+func setup(receive func(manager *cla.Manager, bundle *bpv7.Bundle)) *cla.Manager {
+	connect := func(manager *cla.Manager, eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
 	manager := cla.NewCLAManager(receive, connect, disconnect)
@@ -42,7 +42,7 @@ func TestSingle(t *testing.T) {
 	port := 35037
 	recvChan := make(chan *bpv7.Bundle)
 
-	receiveFunc := func(bundle *bpv7.Bundle) {
+	receiveFunc := func(manager *cla.Manager, bundle *bpv7.Bundle) {
 		log.WithField("bundle", bundle).Debug("Received bundle")
 		recvChan <- bundle
 	}

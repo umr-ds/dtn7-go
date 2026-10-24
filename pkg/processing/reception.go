@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"github.com/dtn7/dtn7-go/pkg/cla"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
@@ -9,17 +10,17 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func receiveAsync(st *store.BundleStore, bundle *bpv7.Bundle) {
+func receiveAsync(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
 	isAdminRecord := bundle.IsAdministrativeRecord()
 	if isAdminRecord {
-		handleAdministrativeRecord(st, bundle)
+		handleAdministrativeRecord(st, clam, bundle)
 	} else {
-		handleBundle(st, bundle, false)
+		handleBundle(st, clam, bundle, false)
 	}
 }
 
 // handleBundle handles a bundle which does not contain an administrative record
-func handleBundle(st *store.BundleStore, bundle *bpv7.Bundle, new bool) {
+func handleBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle, new bool) {
 	bundleDescriptor, err := st.InsertBundle(bundle)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -39,12 +40,12 @@ func handleBundle(st *store.BundleStore, bundle *bpv7.Bundle, new bool) {
 
 	if dispatch, err := bundleDescriptor.HasConstraint(store.DispatchPending); err == nil && dispatch {
 		log.WithField("bundle", bundleDescriptor).Debug("Forwarding received bundle")
-		BundleForwarding(bundleDescriptor, bundle)
+		BundleForwarding(clam, bundleDescriptor, bundle)
 	}
 }
 
 // handleAdministrativeRecord handles reception logic for bundles which contains an administrative record
-func handleAdministrativeRecord(st *store.BundleStore, bundle *bpv7.Bundle) {
+func handleAdministrativeRecord(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
 	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && application_agent.GetManagerSingleton().DeliverAdministrativeRecord(bundle) {
 		bundleDescriptor, err := st.InsertBundle(bundle)
 		if err != nil {
@@ -55,16 +56,16 @@ func handleAdministrativeRecord(st *store.BundleStore, bundle *bpv7.Bundle) {
 			return
 		}
 
-		BundleForwarding(bundleDescriptor, bundle)
+		BundleForwarding(clam, bundleDescriptor, bundle)
 	}
 }
 
 // ReceiveBundle is to be called when a bundle is received from another node
-func ReceiveBundle(st *store.BundleStore, bundle *bpv7.Bundle) {
-	go receiveAsync(st, bundle)
+func ReceiveBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
+	go receiveAsync(st, clam, bundle)
 }
 
 // NewBundle is to be called if a bundle was created on this node
-func NewBundle(st *store.BundleStore, bundle *bpv7.Bundle) {
-	go handleBundle(st, bundle, true)
+func NewBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
+	go handleBundle(st, clam, bundle, true)
 }

@@ -90,10 +90,44 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 	routing.InitialiseAlgorithm(routingAlgorithm)
 
+	// Setup CLAs
+	claReceiveCallback := func(manager *cla.Manager, bundle *bpv7.Bundle) {
+		processing.ReceiveBundle(bundleStore, manager, bundle)
+	}
+	claConnectCallback := func(manager *cla.Manager, eid bpv7.EndpointID) {
+		processing.NewPeer(bundleStore, manager, eid)
+	}
+	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
+	cla.InitialiseCLAManager(claManager)
+	defer claManager.Shutdown()
+
+	for _, lstConf := range conf.Listener {
+		var listener cla.ConvergenceListener
+		switch lstConf.Type {
+		case cla.Dummy:
+			listener = dummy_cla.NewDummyListener(lstConf.Address)
+		case cla.MTCP:
+			srv := mtcp.NewMTCPServer(lstConf.Address, lstConf.EndpointId, claManager.NotifyReceive)
+			listener = srv
+			claManager.Register(srv)
+		case cla.QUICL:
+			listener = quicl.NewQUICListener(claManager, lstConf.Address, lstConf.EndpointId)
+		default:
+			err = NewStartupError(fmt.Sprintf("%v not valid convergence listener type", lstConf.Type), nil)
+			startupErrors = errors.Join(startupErrors, err)
+			continue
+		}
+
+		err = claManager.RegisterListener(listener)
+		if err != nil {
+			err = NewStartupError("Error starting convergence listener", err)
+			startupErrors = errors.Join(startupErrors, err)
+		}
+	}
+
 	// Setup application agents
 	err = application_agent.InitialiseApplicationAgentManager(func(bundle *bpv7.Bundle) {
-		// create partial function by binding bundleStore
-		processing.NewBundle(bundleStore, bundle)
+		processing.NewBundle(bundleStore, claManager, bundle)
 	})
 	if err != nil {
 		err = NewStartupError("Error initialising Application Agent Manager", err)
@@ -118,41 +152,6 @@ func startDTNd(conf config) (startupErrors error) {
 		err = application_agent.GetManagerSingleton().RegisterAgent(unixAgent)
 		if err != nil {
 			err = NewStartupError("Error registering UNIX application agent", err)
-			startupErrors = errors.Join(startupErrors, err)
-		}
-	}
-
-	// Setup CLAs
-	claManager := cla.NewCLAManager(func(bundle *bpv7.Bundle) {
-		// create partial function by binding bundleStore
-		processing.ReceiveBundle(bundleStore, bundle)
-	}, func(eid bpv7.EndpointID) {
-		// create partial function by binding bundleStore
-		processing.NewPeer(bundleStore, eid)
-	}, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
-	cla.InitialiseCLAManager(claManager)
-	defer claManager.Shutdown()
-
-	for _, lstConf := range conf.Listener {
-		var listener cla.ConvergenceListener
-		switch lstConf.Type {
-		case cla.Dummy:
-			listener = dummy_cla.NewDummyListener(lstConf.Address)
-		case cla.MTCP:
-			srv := mtcp.NewMTCPServer(lstConf.Address, lstConf.EndpointId, claManager.NotifyReceive)
-			listener = srv
-			claManager.Register(srv)
-		case cla.QUICL:
-			listener = quicl.NewQUICListener(claManager, lstConf.Address, lstConf.EndpointId)
-		default:
-			err = NewStartupError(fmt.Sprintf("%v not valid convergence listener type", lstConf.Type), nil)
-			startupErrors = errors.Join(startupErrors, err)
-			continue
-		}
-
-		err = claManager.RegisterListener(listener)
-		if err != nil {
-			err = NewStartupError("Error starting convergence listener", err)
 			startupErrors = errors.Join(startupErrors, err)
 		}
 	}

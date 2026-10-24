@@ -18,8 +18,8 @@ import (
 )
 
 func setup() *cla.Manager {
-	receive := func(bundle *bpv7.Bundle) {}
-	connect := func(eid bpv7.EndpointID) {}
+	receive := func(manager *cla.Manager, bundle *bpv7.Bundle) {}
+	connect := func(manager *cla.Manager, eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
 	manager := cla.NewCLAManager(receive, connect, disconnect)

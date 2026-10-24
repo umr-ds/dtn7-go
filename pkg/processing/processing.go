@@ -25,7 +25,7 @@ func SetOwnNodeID(nid bpv7.EndpointID) {
 }
 
 // forwardingAsync implements the bundle forwarding procedure described in RFC9171 section 5.4
-func forwardingAsync(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
+func forwardingAsync(claManager *cla.Manager, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
 	log.WithField("bundle", bundleDescriptor).Debug("Processing bundle")
 
 	// Whatever happens below, the bundle's constraints must be reset once this pass is over.
@@ -71,7 +71,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bund
 		return
 	}
 
-	peers := cla.GetManagerSingleton().GetFilteredPeers(knownHolders)
+	peers := claManager.GetFilteredPeers(knownHolders)
 
 	// attempt direct delivery
 	peers = directDelivery(bundleDescriptor, bundle, peers)
@@ -88,8 +88,8 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bund
 	forwardBundleToPeers(bundleDescriptor, bundle, forwardToPeers)
 }
 
-func BundleForwarding(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
-	go forwardingAsync(bundleDescriptor, bundle)
+func BundleForwarding(claManager *cla.Manager, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
+	go forwardingAsync(claManager, bundleDescriptor, bundle)
 }
 
 // directDelivery forwards the bundle to all peers which are the bundle's destination.
@@ -207,7 +207,7 @@ func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.
 	}
 }
 
-func DispatchPending(st *store.BundleStore) {
+func DispatchPending(st *store.BundleStore, clam *cla.Manager) {
 	log.Debug("Dispatching bundles")
 
 	bundles := st.GetDispatchable()
@@ -215,11 +215,11 @@ func DispatchPending(st *store.BundleStore) {
 	log.WithField("bundles", bundles).Debug("Bundles to dispatch")
 
 	for _, bundle := range bundles {
-		BundleForwarding(bundle, nil)
+		BundleForwarding(clam, bundle, nil)
 	}
 }
 
-func NewPeer(st *store.BundleStore, peerID bpv7.EndpointID) {
+func NewPeer(st *store.BundleStore, clam *cla.Manager, peerID bpv7.EndpointID) {
 	routing.GetAlgorithmSingleton().NotifyPeerAppeared(peerID)
-	DispatchPending(st)
+	DispatchPending(st, clam)
 }
