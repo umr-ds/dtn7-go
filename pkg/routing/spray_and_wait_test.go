@@ -16,7 +16,7 @@ func TestSprayBasic_NotifyNewBundle(t *testing.T) {
 	st := setup(t, router)
 	defer teardown(t, st)
 
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 
 	router.NotifyNewBundle(descriptor, bundle)
 
@@ -37,7 +37,7 @@ func TestSprayBinary_NotifyNewBundle(t *testing.T) {
 	st := setup(t, router)
 	defer teardown(t, st)
 
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 
 	router.NotifyNewBundle(descriptor, bundle)
 
@@ -59,7 +59,7 @@ func TestSprayBasic_NotifyReceivedBundle(t *testing.T) {
 	defer teardown(t, st)
 
 	// test bundle with no BinarySprayBlock
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 
 	router.NotifyReceivedBundle(descriptor, bundle)
 
@@ -73,7 +73,7 @@ func TestSprayBasic_NotifyReceivedBundle(t *testing.T) {
 	}
 
 	// test bundle with BinarySprayBlock
-	descriptor, bundle = testBundle(t)
+	descriptor, bundle = testBundle(t, st)
 	block := bpv7.NewCanonicalBlock(0, 0, bpv7.NewBinarySprayBlock(receivedCopies))
 	err := bundle.AddExtensionBlock(block)
 	if err != nil {
@@ -98,7 +98,7 @@ func TestSprayBinary_NotifyReceivedBundle(t *testing.T) {
 	defer teardown(t, st)
 
 	// test bundle with no BinarySprayBlock
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 
 	router.NotifyReceivedBundle(descriptor, bundle)
 
@@ -112,7 +112,7 @@ func TestSprayBinary_NotifyReceivedBundle(t *testing.T) {
 	}
 
 	// test bundle with BinarySprayBlock
-	descriptor, bundle = testBundle(t)
+	descriptor, bundle = testBundle(t, st)
 	block := bpv7.NewCanonicalBlock(0, 0, bpv7.NewBinarySprayBlock(receivedCopies))
 	err := bundle.AddExtensionBlock(block)
 	if err != nil {
@@ -138,7 +138,7 @@ func TestSprayBasic_SelectPeersForForwarding(t *testing.T) {
 
 	peers := generatePeers(15)
 
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 	router.NotifyNewBundle(descriptor, bundle)
 
 	// feeding it 5 peers, should select all 5 and reduce the remaining copies by 5
@@ -221,7 +221,7 @@ func TestSprayBinary_SelectPeersForForwarding(t *testing.T) {
 
 	peers := generatePeers(15)
 
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 	router.NotifyNewBundle(descriptor, bundle)
 
 	selectedPeers := router.SelectPeersForForwarding(descriptor, peers)
@@ -279,7 +279,7 @@ func TestSprayBinary_ModifyHeaders(t *testing.T) {
 	defer teardown(t, st)
 
 	peer := generatePeers(1)[0]
-	descriptor, bundle := testBundle(t)
+	descriptor, bundle := testBundle(t, st)
 
 	router.bundleCopies[descriptor.ID()] = make(map[bpv7.EndpointID]uint64)
 	router.bundleCopies[descriptor.ID()][peer.GetPeerEndpointID()] = 6

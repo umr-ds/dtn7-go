@@ -11,7 +11,7 @@ func TestEpidemicRouting_SelectPeersForForwarding(t *testing.T) {
 
 	peers := generatePeers(10)
 
-	descriptor, _ := testBundle(t)
+	descriptor, _ := testBundle(t, st)
 
 	// send to half of peers
 	selectedPeers := router.SelectPeersForForwarding(descriptor, peers[:5])

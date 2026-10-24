@@ -78,10 +78,10 @@ func withoutKnownHolders(t *testing.T, descriptor *store.BundleDescriptor, peers
 	return filtered
 }
 
-func testBundle(t *testing.T) (*store.BundleDescriptor, *bpv7.Bundle) {
+func testBundle(t *testing.T, st *store.BundleStore) (*store.BundleDescriptor, *bpv7.Bundle) {
 	bundle := testhelpers.SampleBundle(t)
 
-	descriptor, err := store.GetStoreSingleton().InsertBundle(bundle)
+	descriptor, err := st.InsertBundle(bundle)
 	if err != nil {
 		t.Fatalf("Error inserting bundle into store %s", err)
 	}
