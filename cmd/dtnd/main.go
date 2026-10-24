@@ -133,7 +133,7 @@ func startDTNd(conf config) (startupErrors error) {
 
 	if conf.Agents.REST.Address != "" {
 		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address, bundleStore)
-		err = application_agent.GetManagerSingleton().RegisterAgent(restAgent)
+		err = aaManager.RegisterAgent(restAgent)
 		if err != nil {
 			err = NewStartupError("Error registering REST application agent", err)
 			startupErrors = errors.Join(startupErrors, err)
@@ -146,7 +146,7 @@ func startDTNd(conf config) (startupErrors error) {
 			err = NewStartupError("Error creating UNIX application agent", err)
 			startupErrors = errors.Join(startupErrors, err)
 		}
-		err = application_agent.GetManagerSingleton().RegisterAgent(unixAgent)
+		err = aaManager.RegisterAgent(unixAgent)
 		if err != nil {
 			err = NewStartupError("Error registering UNIX application agent", err)
 			startupErrors = errors.Join(startupErrors, err)
@@ -184,7 +184,7 @@ func startDTNd(conf config) (startupErrors error) {
 		),
 		gocron.NewTask(
 			func() {
-				gc(bundleStore)
+				gc(bundleStore, aaManager)
 			},
 		),
 	)
@@ -203,9 +203,9 @@ func stopDTNd() {
 	id_keeper.ShutdownIdKeeper()
 }
 
-func gc(st *store.BundleStore) {
+func gc(st *store.BundleStore, aam *application_agent.Manager) {
 	st.GarbageCollect()
-	application_agent.GetManagerSingleton().GC()
+	aam.GC()
 }
 
 type StartupError struct {
