@@ -192,11 +192,11 @@ func (manager *Manager) handleDiscovery(announcement Announcement, addr string) 
 		return
 	}
 
-	if cla.GetManagerSingleton().CheckPresent(conv) {
+	if manager.claManager.CheckPresent(conv) {
 		return
 	}
 
-	cla.GetManagerSingleton().Register(conv)
+	manager.claManager.Register(conv)
 }
 
 func (manager *Manager) String() string {
