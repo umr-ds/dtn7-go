@@ -124,14 +124,12 @@ func startDTNd(conf config) (startupErrors error) {
 		}
 	}
 
-	// Setup application agents
-	err = application_agent.InitialiseApplicationAgentManager(func(bundle *bpv7.Bundle) {
+	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
 		processing.NewBundle(bundleStore, claManager, bundle)
 	})
-	if err != nil {
-		err = NewStartupError("Error initialising Application Agent Manager", err)
-		startupErrors = errors.Join(startupErrors, err)
-	}
+	// Setup application agents
+	application_agent.InitialiseApplicationAgentManager(aaManager)
+	defer aaManager.Shutdown()
 
 	if conf.Agents.REST.Address != "" {
 		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address, bundleStore)
@@ -201,7 +199,6 @@ func startDTNd(conf config) (startupErrors error) {
 
 func stopDTNd() {
 	discovery.ShutdownDiscoveryManager()
-	application_agent.ShutdownAAManager()
 	routing.ShutdownAlgorithm()
 	id_keeper.ShutdownIdKeeper()
 }

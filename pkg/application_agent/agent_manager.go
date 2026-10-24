@@ -21,15 +21,18 @@ type Manager struct {
 	sendCallback func(bundle *bpv7.Bundle)
 }
 
-var managerSingleton *Manager
-
-func InitialiseApplicationAgentManager(sendCallback func(bundle *bpv7.Bundle)) error {
+func NewAgentManager(sendCallback func(bundle *bpv7.Bundle)) *Manager {
 	manager := Manager{
 		agents:       make(map[string]ApplicationAgent),
 		sendCallback: sendCallback,
 	}
-	managerSingleton = &manager
-	return nil
+	return &manager
+}
+
+var managerSingleton *Manager
+
+func InitialiseApplicationAgentManager(manager *Manager) {
+	managerSingleton = manager
 }
 
 // GetManagerSingleton returns the manager singleton-instance.
@@ -41,14 +44,7 @@ func GetManagerSingleton() *Manager {
 	return managerSingleton
 }
 
-func ShutdownAAManager() {
-	if managerSingleton == nil {
-		return
-	}
-	managerSingleton.shutdown()
-}
-
-func (manager *Manager) shutdown() {
+func (manager *Manager) Shutdown() {
 	managerSingleton = nil
 
 	manager.stateMutex.RLock()
