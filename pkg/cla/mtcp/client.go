@@ -36,23 +36,26 @@ type MTCPClient struct {
 
 	stopSyn chan struct{}
 	stopped atomic.Bool
+	// manager that this CLA is managed by
+	manager *cla.Manager
 }
 
 // NewMTCPClient creates a new MTCPClient, connected to the given address for
 // the registered endpoint ID. The permanent flag indicates if this MTCPClient
 // should never be removed from the core.
-func NewMTCPClient(address string, peer bpv7.EndpointID) *MTCPClient {
+func NewMTCPClient(manager *cla.Manager, address string, peer bpv7.EndpointID) *MTCPClient {
 	return &MTCPClient{
 		peer:    peer,
 		address: address,
+		manager: manager,
 	}
 }
 
 // NewAnonymousMTCPClient creates a new MTCPClient, connected to the given address.
 // The permanent flag indicates if this MTCPClient should never be removed from
 // the core.
-func NewAnonymousMTCPClient(address string) *MTCPClient {
-	return NewMTCPClient(address, bpv7.DtnNone())
+func NewAnonymousMTCPClient(manager *cla.Manager, address string) *MTCPClient {
+	return NewMTCPClient(manager, address, bpv7.DtnNone())
 }
 
 func (client *MTCPClient) Activate() (err error) {
@@ -75,7 +78,7 @@ func (client *MTCPClient) handler() {
 	defer ticker.Stop()
 
 	// Introduce ourselves once
-	cla.GetManagerSingleton().NotifyConnect(client.peer)
+	client.manager.NotifyConnect(client.peer)
 
 	for {
 		select {
@@ -156,7 +159,7 @@ func (client *MTCPClient) Close() error {
 		return nil
 	}
 
-	cla.GetManagerSingleton().NotifyDisconnect(client)
+	client.manager.NotifyDisconnect(client)
 
 	close(client.stopSyn)
 

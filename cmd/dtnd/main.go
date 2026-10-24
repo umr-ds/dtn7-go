@@ -158,7 +158,7 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	// Setup neighbour discovery
-	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager.NotifyReceive)
+	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager)
 	if err != nil {
 		err = NewStartupError("Error starting discovery manager", err)
 		startupErrors = errors.Join(startupErrors, err)

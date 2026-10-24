@@ -63,7 +63,7 @@ func TestSendReceive(t *testing.T) {
 
 		clients := make([]*MTCPClient, numberOfClients)
 		for i := range numberOfClients {
-			client := NewAnonymousMTCPClient(fmt.Sprintf("localhost:%d", port))
+			client := NewAnonymousMTCPClient(manager, fmt.Sprintf("localhost:%d", port))
 			if err := client.Activate(); err != nil {
 				t.Fatal(fmt.Errorf("starting Client failed: %v", err))
 			}

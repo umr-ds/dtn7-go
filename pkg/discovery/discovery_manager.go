@@ -32,8 +32,8 @@ const (
 
 // Manager publishes and receives Announcements.
 type Manager struct {
-	NodeId          bpv7.EndpointID
-	receiveCallback func(*bpv7.Bundle)
+	NodeId     bpv7.EndpointID
+	claManager *cla.Manager
 
 	stopChan4 chan struct{}
 	stopChan6 chan struct{}
@@ -45,14 +45,14 @@ func InitialiseManager(
 	nodeId bpv7.EndpointID,
 	announcements []Announcement, announcementInterval time.Duration,
 	ipv4, ipv6 bool,
-	receiveCallback func(*bpv7.Bundle)) error {
+	claManager *cla.Manager) error {
 	if managerSingleton != nil {
 		log.Fatalf("Attempting to access an uninitialised discovery manager. This must never happen!")
 	}
 
 	var manager = &Manager{
-		NodeId:          nodeId,
-		receiveCallback: receiveCallback,
+		NodeId:     nodeId,
+		claManager: claManager,
 	}
 	if ipv4 {
 		manager.stopChan4 = make(chan struct{})
@@ -176,19 +176,17 @@ func (manager *Manager) handleDiscovery(announcement Announcement, addr string) 
 		return
 	}
 
-	/*
-		log.WithFields(log.Fields{
-			"peer":    addr,
-			"message": announcement,
-		}).Debug("Peer discovery received a message")
-	*/
+	log.WithFields(log.Fields{
+		"peer":    addr,
+		"message": announcement,
+	}).Trace("Peer discovery received a message")
 
 	var conv cla.Convergence
 	switch announcement.Type {
 	case cla.MTCP:
-		conv = mtcp.NewMTCPClient(fmt.Sprintf("%s:%d", addr, announcement.Port), announcement.Endpoint)
+		conv = mtcp.NewMTCPClient(manager.claManager, fmt.Sprintf("%s:%d", addr, announcement.Port), announcement.Endpoint)
 	case cla.QUICL:
-		conv = quicl.NewDialerEndpoint(fmt.Sprintf("%s:%d", addr, announcement.Port), manager.NodeId, manager.receiveCallback)
+		conv = quicl.NewDialerEndpoint(fmt.Sprintf("%s:%d", addr, announcement.Port), manager.NodeId, manager.claManager.NotifyReceive)
 	default:
 		log.WithField("cType", announcement.Type).Error("Invalid cType")
 		return
