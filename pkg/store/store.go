@@ -124,7 +124,7 @@ func (bst *BundleStore) loadAll() ([]*BundleDescriptor, error) {
 	}
 	descriptors := make([]*BundleDescriptor, 0, len(bundles))
 	for _, metadata := range bundles {
-		descriptors = append(descriptors, NewBundleDescriptor(metadata))
+		descriptors = append(descriptors, NewBundleDescriptor(metadata, bst))
 	}
 	return descriptors, nil
 }
@@ -287,7 +287,7 @@ func (bst *BundleStore) insertNewBundleUnsafe(bundle *bpv7.Bundle) (*BundleDescr
 		return nil, err
 	}
 
-	descriptor := NewBundleDescriptor(metadata)
+	descriptor := NewBundleDescriptor(metadata, bst)
 	bst.bundles[bundle.ID()] = descriptor
 
 	return descriptor, nil

@@ -46,6 +46,8 @@ type BundleDescriptor struct {
 	// metadata is all data which should be preserved to the database
 	metadata BundleMetadata
 
+	// BundleStore that this descriptor was pulled from
+	store *BundleStore
 	// stateMutex serialises access to struct fields
 	stateMutex sync.RWMutex
 	// retentionConstraints as defined by RFC9171 Section 5, see constraints.go for possible values
@@ -61,9 +63,10 @@ type BundleDescriptor struct {
 	shouldDelete bool
 }
 
-func NewBundleDescriptor(metadata BundleMetadata) *BundleDescriptor {
+func NewBundleDescriptor(metadata BundleMetadata, store *BundleStore) *BundleDescriptor {
 	bd := BundleDescriptor{
 		metadata:             metadata,
+		store:                store,
 		retentionConstraints: []Constraint{DispatchPending},
 		retain:               true,
 		dispatch:             true,
@@ -101,7 +104,7 @@ func (bd *BundleDescriptor) SetMiscData(key string, value any) error {
 	defer bd.stateMutex.Unlock()
 
 	bd.metadata.MiscellaneousData[key] = value
-	err := GetStoreSingleton().updateBundleMetadata(bd.metadata)
+	err := bd.store.updateBundleMetadata(bd.metadata)
 	return err
 }
 
@@ -117,7 +120,7 @@ func (bd *BundleDescriptor) Load() (*bpv7.Bundle, error) {
 		return nil, NewBundleDeletedError(bd.metadata.ID)
 	}
 
-	return GetStoreSingleton().loadEntireBundle(bd.metadata.SerialisedFileName)
+	return bd.store.loadEntireBundle(bd.metadata.SerialisedFileName)
 }
 
 // LoadPartialBundle loads at most one of each of the blocks with the types in wantedBlocks
@@ -131,7 +134,7 @@ func (bd *BundleDescriptor) LoadPartialBundle(wantedBlocks ...bpv7.BlockType) (*
 		return nil, NewBundleDeletedError(bd.metadata.ID)
 	}
 
-	return GetStoreSingleton().loadPartialBundle(bd.metadata.SerialisedFileName, wantedBlocks)
+	return bd.store.loadPartialBundle(bd.metadata.SerialisedFileName, wantedBlocks)
 }
 
 // GetKnownHolders gets the list of EndpointIDs which we know to already have received the bundle.
@@ -158,7 +161,7 @@ func (bd *BundleDescriptor) AddKnownHolder(peers ...bpv7.EndpointID) error {
 	}
 
 	bd.metadata.KnownHolders = append(bd.metadata.KnownHolders, peers...)
-	err := GetStoreSingleton().updateBundleMetadata(bd.metadata)
+	err := bd.store.updateBundleMetadata(bd.metadata)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"bundle": bd.metadata.IDString,
@@ -308,7 +311,7 @@ func (bd *BundleDescriptor) unsafeDelete() error {
 	}
 
 	bd.deleted = true
-	go GetStoreSingleton().deleteBundle(bd.metadata)
+	go bd.store.deleteBundle(bd.metadata)
 	return nil
 }
 
@@ -322,6 +325,10 @@ func (bd *BundleDescriptor) unsafeDelete() error {
 func (bd *BundleDescriptor) Delete(markIfConstraint bool) error {
 	bd.stateMutex.Lock()
 	defer bd.stateMutex.Unlock()
+
+	if bd.deleted {
+		return NewBundleDeletedError(bd.metadata.ID)
+	}
 
 	if len(bd.retentionConstraints) > 0 {
 		if markIfConstraint {

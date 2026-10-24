@@ -49,12 +49,12 @@ func TestBundleInsertion(t *testing.T) {
 		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
-		bd, err := GetStoreSingleton().InsertBundle(bundle)
+		bd, err := store.InsertBundle(bundle)
 		if err != nil {
 			rt.Fatal(err)
 		}
 
-		bdLoad, err := GetStoreSingleton().GetBundleDescriptor(bundle.ID())
+		bdLoad, err := store.GetBundleDescriptor(bundle.ID())
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -80,7 +80,7 @@ func TestBundleDeletion(t *testing.T) {
 		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
-		bd, err := GetStoreSingleton().InsertBundle(bundle)
+		bd, err := store.InsertBundle(bundle)
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func TestBundleDeletion(t *testing.T) {
 			rt.Fatal("Bundle not marked as deleted")
 		}
 
-		_, err = GetStoreSingleton().GetBundleDescriptor(bundle.ID())
+		_, err = store.GetBundleDescriptor(bundle.ID())
 		target := &NoSuchBundleError{}
 		if !errors.As(err, &target) {
 			rt.Fatal("Bundle exists after deletion")
@@ -114,7 +114,7 @@ func TestLoadFromDisk(t *testing.T) {
 
 		// generate bundle and add it to the store
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
-		descriptor, err := GetStoreSingleton().InsertBundle(bundle)
+		descriptor, err := store.InsertBundle(bundle)
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -127,7 +127,7 @@ func TestLoadFromDisk(t *testing.T) {
 		initialiseStore(t, dir)
 
 		// get loaded descriptor & bundle and check them for equality with the original ones
-		retrieved, err := GetStoreSingleton().GetBundleDescriptor(descriptor.ID())
+		retrieved, err := store.GetBundleDescriptor(descriptor.ID())
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -153,7 +153,7 @@ func TestConstraints(t *testing.T) {
 		defer cleanupTest(t, store)
 
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
-		bd, err := GetStoreSingleton().InsertBundle(bundle)
+		bd, err := store.InsertBundle(bundle)
 		if err != nil {
 			rt.Fatal(err)
 		}
@@ -187,7 +187,7 @@ func Test_loadExtensionBlocks(t *testing.T) {
 		_, store := initTest(t)
 		defer cleanupTest(t, store)
 		bundle := randomizedBundleGenerator.Draw(rt, "bundle")
-		bp, err := GetStoreSingleton().InsertBundle(bundle)
+		bp, err := store.InsertBundle(bundle)
 		if err != nil {
 			return
 		}
