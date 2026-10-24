@@ -19,8 +19,7 @@ const (
 	maxBundles  = 10
 )
 
-func setup() *cla.Manager {
-	receive := func(bundle *bpv7.Bundle) {}
+func setup(receive func(bundle *bpv7.Bundle)) *cla.Manager {
 	connect := func(eid bpv7.EndpointID) {}
 	disconnect := func(eid bpv7.EndpointID) {}
 
@@ -34,9 +33,6 @@ func teardown(manager *cla.Manager) {
 }
 
 func TestSingle(t *testing.T) {
-	manager := setup()
-	defer teardown(manager)
-
 	timeout, err := time.ParseDuration(testTimeout)
 	if err != nil {
 		t.Fatalf("Error parsing timeout: %v", err.Error())
@@ -51,14 +47,17 @@ func TestSingle(t *testing.T) {
 		recvChan <- bundle
 	}
 
+	manager := setup(receiveFunc)
+	defer teardown(manager)
+
 	// Server
 	serv := NewQUICListener(
-		fmt.Sprintf(":%d", port), bpv7.MustNewEndpointID("dtn://quicl/"), receiveFunc)
+		manager, fmt.Sprintf(":%d", port), bpv7.MustNewEndpointID("dtn://quicl/"))
 	if err := serv.Start(); err != nil {
 		t.Fatal(err)
 	}
 
-	client := NewDialerEndpoint(fmt.Sprintf("localhost:%d", port), bpv7.DtnNone(), receiveFunc)
+	client := NewDialerEndpoint(manager, fmt.Sprintf("localhost:%d", port), bpv7.DtnNone())
 	if err := client.Activate(); err != nil {
 		t.Fatal(fmt.Errorf("starting Client failed: %v", err))
 	}

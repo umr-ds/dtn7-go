@@ -186,7 +186,7 @@ func (manager *Manager) handleDiscovery(announcement Announcement, addr string) 
 	case cla.MTCP:
 		conv = mtcp.NewMTCPClient(manager.claManager, fmt.Sprintf("%s:%d", addr, announcement.Port), announcement.Endpoint)
 	case cla.QUICL:
-		conv = quicl.NewDialerEndpoint(fmt.Sprintf("%s:%d", addr, announcement.Port), manager.NodeId, manager.claManager.NotifyReceive)
+		conv = quicl.NewDialerEndpoint(manager.claManager, fmt.Sprintf("%s:%d", addr, announcement.Port), manager.NodeId)
 	default:
 		log.WithField("cType", announcement.Type).Error("Invalid cType")
 		return

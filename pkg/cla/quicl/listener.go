@@ -22,15 +22,15 @@ type Listener struct {
 	quicListener  *quic.Listener
 	running       atomic.Bool
 
-	receiveCallback func(*bpv7.Bundle)
+	manager *cla.Manager
 }
 
-func NewQUICListener(listenAddress string, endpointID bpv7.EndpointID, receiveCallback func(*bpv7.Bundle)) *Listener {
+func NewQUICListener(manager *cla.Manager, listenAddress string, endpointID bpv7.EndpointID) *Listener {
 	return &Listener{
-		listenAddress:   listenAddress,
-		endpointID:      endpointID,
-		quicListener:    nil,
-		receiveCallback: receiveCallback,
+		listenAddress: listenAddress,
+		endpointID:    endpointID,
+		quicListener:  nil,
+		manager:       manager,
 	}
 }
 
@@ -91,8 +91,8 @@ func (listener *Listener) handle() {
 				"address": listener.listenAddress,
 				"peer":    session.RemoteAddr(),
 			}).Info("QUICL listener accepted new connection")
-			endpoint := NewListenerEndpoint(listener.endpointID, session, listener.receiveCallback)
-			cla.GetManagerSingleton().Register(endpoint)
+			endpoint := NewListenerEndpoint(listener.manager, listener.endpointID, session)
+			listener.manager.Register(endpoint)
 		}
 	}
 }

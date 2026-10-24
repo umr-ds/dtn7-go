@@ -143,7 +143,7 @@ func startDTNd(conf config) (startupErrors error) {
 			listener = srv
 			claManager.Register(srv)
 		case cla.QUICL:
-			listener = quicl.NewQUICListener(lstConf.Address, lstConf.EndpointId, claManager.NotifyReceive)
+			listener = quicl.NewQUICListener(claManager, lstConf.Address, lstConf.EndpointId)
 		default:
 			err = NewStartupError(fmt.Sprintf("%v not valid convergence listener type", lstConf.Type), nil)
 			startupErrors = errors.Join(startupErrors, err)

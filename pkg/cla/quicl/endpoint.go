@@ -38,8 +38,6 @@ type Endpoint struct {
 	peerAddress string
 	// The actual QUIC connection which transceives data
 	connection *quic.Conn
-	// Gets called when a bundle is received
-	receiveCallback func(*bpv7.Bundle)
 
 	rateLimiter *semaphore.Weighted
 
@@ -48,28 +46,31 @@ type Endpoint struct {
 
 	// Whether the protocol handshake has been completed
 	handshake atomic.Bool
+
+	// Manager responsible for this CLA
+	manager *cla.Manager
 }
 
-func NewListenerEndpoint(id bpv7.EndpointID, session *quic.Conn, receiveCallback func(*bpv7.Bundle)) *Endpoint {
+func NewListenerEndpoint(manager *cla.Manager, id bpv7.EndpointID, session *quic.Conn) *Endpoint {
 	return &Endpoint{
-		id:              id,
-		peerAddress:     session.RemoteAddr().String(),
-		connection:      session,
-		dialer:          false,
-		active:          false,
-		receiveCallback: receiveCallback,
-		rateLimiter:     semaphore.NewWeighted(5),
+		id:          id,
+		peerAddress: session.RemoteAddr().String(),
+		connection:  session,
+		dialer:      false,
+		active:      false,
+		rateLimiter: semaphore.NewWeighted(5),
+		manager:     manager,
 	}
 }
 
-func NewDialerEndpoint(peerAddress string, id bpv7.EndpointID, receiveCallback func(*bpv7.Bundle)) *Endpoint {
+func NewDialerEndpoint(manager *cla.Manager, peerAddress string, id bpv7.EndpointID) *Endpoint {
 	return &Endpoint{
-		id:              id,
-		peerAddress:     peerAddress,
-		dialer:          true,
-		active:          false,
-		receiveCallback: receiveCallback,
-		rateLimiter:     semaphore.NewWeighted(5),
+		id:          id,
+		peerAddress: peerAddress,
+		dialer:      true,
+		active:      false,
+		rateLimiter: semaphore.NewWeighted(5),
+		manager:     manager,
 	}
 }
 
@@ -135,7 +136,7 @@ func (endpoint *Endpoint) Activate() error {
 	}
 
 	endpoint.active = true
-	cla.GetManagerSingleton().NotifyConnect(endpoint.peerId)
+	endpoint.manager.NotifyConnect(endpoint.peerId)
 	return nil
 }
 
@@ -212,7 +213,7 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 
 		if netErr, ok := errors.AsType[net.Error](err); ok {
 			if netErr.Timeout() {
-				cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+				endpoint.manager.NotifyDisconnect(endpoint)
 			}
 		}
 
@@ -245,7 +246,7 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 
 		if netErr, ok := errors.AsType[net.Error](err); ok {
 			if netErr.Timeout() {
-				cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+				endpoint.manager.NotifyDisconnect(endpoint)
 			}
 		}
 		return err
@@ -275,7 +276,7 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 
 		if netErr, ok := errors.AsType[net.Error](err); ok {
 			if netErr.Timeout() {
-				cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+				endpoint.manager.NotifyDisconnect(endpoint)
 			}
 		}
 		return err
@@ -334,7 +335,7 @@ func (endpoint *Endpoint) handleConnection() {
 					"error msg":  appErr.ErrorMessage,
 				}).Debug("Connection to peer closed")
 				if appErr.Remote {
-					go cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+					go endpoint.manager.NotifyDisconnect(endpoint)
 				}
 				return
 
@@ -345,7 +346,7 @@ func (endpoint *Endpoint) handleConnection() {
 						"error": netErr,
 					}).Debug("Peer timed out.")
 
-					cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+					endpoint.manager.NotifyDisconnect(endpoint)
 
 					return
 				}
@@ -382,7 +383,7 @@ func (endpoint *Endpoint) handleStream(stream *quic.Stream) {
 
 		if netErr, ok := errors.AsType[net.Error](err); ok {
 			if netErr.Timeout() {
-				cla.GetManagerSingleton().NotifyDisconnect(endpoint)
+				endpoint.manager.NotifyDisconnect(endpoint)
 			}
 		}
 	} else {
@@ -390,7 +391,7 @@ func (endpoint *Endpoint) handleStream(stream *quic.Stream) {
 			"cla": endpoint,
 		}).Debug("quicl received a bundle")
 
-		endpoint.receiveCallback(bundle)
+		endpoint.manager.NotifyReceive(bundle)
 	}
 	log.WithFields(log.Fields{
 		"cla":    endpoint,
