@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 
@@ -91,7 +92,10 @@ func startDTNd(conf config) (startupErrors error) {
 	routing.InitialiseAlgorithm(routingAlgorithm)
 
 	// Setup application agents
-	err = application_agent.InitialiseApplicationAgentManager(processing.NewBundle)
+	err = application_agent.InitialiseApplicationAgentManager(func(bundle *bpv7.Bundle) {
+		// create partial function by binding bundleStore
+		processing.NewBundle(bundleStore, bundle)
+	})
 	if err != nil {
 		err = NewStartupError("Error initialising Application Agent Manager", err)
 		startupErrors = errors.Join(startupErrors, err)
@@ -120,7 +124,13 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 
 	// Setup CLAs
-	cla.InitialiseCLAManager(processing.ReceiveBundle, processing.NewPeer, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
+	cla.InitialiseCLAManager(func(bundle *bpv7.Bundle) {
+		// create partial function by binding bundleStore
+		processing.ReceiveBundle(bundleStore, bundle)
+	}, func(eid bpv7.EndpointID) {
+		// create partial function by binding bundleStore
+		processing.NewPeer(bundleStore, eid)
+	}, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
 
 	for _, lstConf := range conf.Listener {
 		var listener cla.ConvergenceListener

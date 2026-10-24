@@ -29,7 +29,7 @@ func forwardingAsync(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bund
 	log.WithField("bundle", bundleDescriptor).Debug("Processing bundle")
 
 	// Whatever happens below, the bundle's constraints must be reset once this pass is over.
-	// Otherwise the bundle would remain in a "forwarding pending" state and would never be dispatched again.
+	// Otherwise, the bundle would remain in a "forwarding pending" state and would never be dispatched again.
 	// Resetting instead of removing the ForwardPending constraint alone also cleans up partial state,
 	// e.g. if an error occurred halfway through.
 	// Note: reassembly is not implemented yet, so no ReassemblyPending constraint can be lost here.
@@ -207,10 +207,10 @@ func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.
 	}
 }
 
-func DispatchPending() {
+func DispatchPending(st *store.BundleStore) {
 	log.Debug("Dispatching bundles")
 
-	bundles := store.GetStoreSingleton().GetDispatchable()
+	bundles := st.GetDispatchable()
 
 	log.WithField("bundles", bundles).Debug("Bundles to dispatch")
 
@@ -219,7 +219,7 @@ func DispatchPending() {
 	}
 }
 
-func NewPeer(peerID bpv7.EndpointID) {
+func NewPeer(st *store.BundleStore, peerID bpv7.EndpointID) {
 	routing.GetAlgorithmSingleton().NotifyPeerAppeared(peerID)
-	DispatchPending()
+	DispatchPending(st)
 }

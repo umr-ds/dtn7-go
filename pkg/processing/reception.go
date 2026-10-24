@@ -9,18 +9,18 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func receiveAsync(bundle *bpv7.Bundle) {
+func receiveAsync(st *store.BundleStore, bundle *bpv7.Bundle) {
 	isAdminRecord := bundle.IsAdministrativeRecord()
 	if isAdminRecord {
-		handleAdministrativeRecord(bundle)
+		handleAdministrativeRecord(st, bundle)
 	} else {
-		handleBundle(bundle, false)
+		handleBundle(st, bundle, false)
 	}
 }
 
 // handleBundle handles a bundle which does not contain an administrative record
-func handleBundle(bundle *bpv7.Bundle, new bool) {
-	bundleDescriptor, err := store.GetStoreSingleton().InsertBundle(bundle)
+func handleBundle(st *store.BundleStore, bundle *bpv7.Bundle, new bool) {
+	bundleDescriptor, err := st.InsertBundle(bundle)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"bundle": bundle.ID(),
@@ -44,9 +44,9 @@ func handleBundle(bundle *bpv7.Bundle, new bool) {
 }
 
 // handleAdministrativeRecord handles reception logic for bundles which contains an administrative record
-func handleAdministrativeRecord(bundle *bpv7.Bundle) {
+func handleAdministrativeRecord(st *store.BundleStore, bundle *bpv7.Bundle) {
 	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && application_agent.GetManagerSingleton().DeliverAdministrativeRecord(bundle) {
-		bundleDescriptor, err := store.GetStoreSingleton().InsertBundle(bundle)
+		bundleDescriptor, err := st.InsertBundle(bundle)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"bundle": bundle.ID(),
@@ -60,11 +60,11 @@ func handleAdministrativeRecord(bundle *bpv7.Bundle) {
 }
 
 // ReceiveBundle is to be called when a bundle is received from another node
-func ReceiveBundle(bundle *bpv7.Bundle) {
-	go receiveAsync(bundle)
+func ReceiveBundle(st *store.BundleStore, bundle *bpv7.Bundle) {
+	go receiveAsync(st, bundle)
 }
 
 // NewBundle is to be called if a bundle was created on this node
-func NewBundle(bundle *bpv7.Bundle) {
-	go handleBundle(bundle, true)
+func NewBundle(st *store.BundleStore, bundle *bpv7.Bundle) {
+	go handleBundle(st, bundle, true)
 }
