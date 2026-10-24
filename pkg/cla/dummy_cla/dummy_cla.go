@@ -24,7 +24,7 @@ type DummyCLA struct {
 	peerID          bpv7.EndpointID
 	transferChannel chan []byte
 	channelActive   atomic.Bool
-	receiveCallback func(bundle bpv7.Bundle) (interface{}, error)
+	receiveCallback func(bundle bpv7.Bundle) (any, error)
 }
 
 // NewSuperDummyCLA creates the ”dumbest” possible cla, it only has a peer id and nothing else.
@@ -34,7 +34,7 @@ func NewSuperDummyCLA(peerID bpv7.EndpointID) *DummyCLA {
 	return &cla
 }
 
-func NewDummyCLAPair(peerAID bpv7.EndpointID, peerBID bpv7.EndpointID, receiveCallback func(bundle bpv7.Bundle) (interface{}, error)) (*DummyCLA, *DummyCLA) {
+func NewDummyCLAPair(peerAID bpv7.EndpointID, peerBID bpv7.EndpointID, receiveCallback func(bundle bpv7.Bundle) (any, error)) (*DummyCLA, *DummyCLA) {
 	transferChannel := make(chan []byte)
 	peerA := DummyCLA{
 		ownID:           peerAID,

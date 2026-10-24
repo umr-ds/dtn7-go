@@ -84,7 +84,7 @@ func TestBldrParseEndpoint(t *testing.T) {
 
 func TestBldrParseLifetime(t *testing.T) {
 	tests := []struct {
-		val interface{}
+		val any
 		ms  uint64
 		err bool
 	}{
@@ -167,13 +167,13 @@ func TestBundleBuilderAdministrativeRecord(t *testing.T) {
 func TestBuildFromMap(t *testing.T) {
 	tests := []struct {
 		name     string
-		args     map[string]interface{}
+		args     map[string]any
 		wantBndl *Bundle
 		wantErr  bool
 	}{
 		{
 			name: "simple",
-			args: map[string]interface{}{
+			args: map[string]any{
 				"destination":              "dtn://dst/",
 				"source":                   "dtn://src/",
 				"creation_timestamp_epoch": true,
@@ -193,7 +193,7 @@ func TestBuildFromMap(t *testing.T) {
 		},
 		{
 			name: "payload as string",
-			args: map[string]interface{}{
+			args: map[string]any{
 				"destination":              "dtn://dst/",
 				"source":                   "dtn://src/",
 				"creation_timestamp_epoch": true,
@@ -213,7 +213,7 @@ func TestBuildFromMap(t *testing.T) {
 		},
 		{
 			name: "illegal method",
-			args: map[string]interface{}{
+			args: map[string]any{
 				"nope": "nope",
 			},
 			wantBndl: &Bundle{},
@@ -221,7 +221,7 @@ func TestBuildFromMap(t *testing.T) {
 		},
 		{
 			name: "no source",
-			args: map[string]interface{}{
+			args: map[string]any{
 				"destination":              "dtn://dst/",
 				"creation_timestamp_epoch": true,
 				"lifetime":                 "24h",
@@ -247,7 +247,7 @@ func TestBuildFromMap(t *testing.T) {
 }
 
 func TestBuildFromMapJSON(t *testing.T) {
-	var args map[string]interface{}
+	var args map[string]any
 	data := []byte(`{
 		"destination":            "dtn://dst/",
 		"source":                 "dtn://src/",

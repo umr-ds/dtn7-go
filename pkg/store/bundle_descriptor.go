@@ -1,6 +1,7 @@
 package store
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -267,10 +268,8 @@ func (bd *BundleDescriptor) HasConstraint(constraint Constraint) (bool, error) {
 		return false, NewBundleDeletedError(bd.metadata.ID)
 	}
 
-	for _, ownConstraint := range bd.retentionConstraints {
-		if ownConstraint == constraint {
-			return true, nil
-		}
+	if slices.Contains(bd.retentionConstraints, constraint) {
+		return true, nil
 	}
 
 	return false, nil

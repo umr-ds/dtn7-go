@@ -36,7 +36,7 @@ type RegisterUnregisterMessage struct {
 
 type BundleCreateMessage struct {
 	Message
-	Args map[string]interface{}
+	Args map[string]any
 }
 
 type BundleCreateResponse struct {

@@ -60,7 +60,7 @@ func TestSendReceive(t *testing.T) {
 		}
 
 		clients := make([]*MTCPClient, numberOfClients)
-		for i := 0; i < numberOfClients; i++ {
+		for i := range numberOfClients {
 			client := NewAnonymousMTCPClient(fmt.Sprintf("localhost:%d", port))
 			if err := client.Activate(); err != nil {
 				t.Fatal(fmt.Errorf("starting Client failed: %v", err))
@@ -68,7 +68,7 @@ func TestSendReceive(t *testing.T) {
 			clients[i] = client
 		}
 
-		for i = 0; i < numberOfBundles; i++ {
+		for i = range numberOfBundles {
 			sender := clients[rapid.IntRange(0, len(clients)-1).Draw(t, fmt.Sprintf("Sender %v", i))]
 			go func(i uint8, sender *MTCPClient) {
 				bundle := bundles[i]

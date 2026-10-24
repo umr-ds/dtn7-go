@@ -110,13 +110,7 @@ func (b *PartialBundle) AddExtensionBlock(block CanonicalBlock) error {
 	}
 
 	for {
-		flag := true
-		for _, no := range blockNumbers {
-			if blockNumber == no {
-				flag = false
-				break
-			}
-		}
+		flag := !slices.Contains(blockNumbers, blockNumber)
 
 		if flag {
 			break

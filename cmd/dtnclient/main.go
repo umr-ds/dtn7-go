@@ -232,7 +232,7 @@ func handleCreate(
 	sourceID, destinationID, reportTo, creationTimestamp, lifetime, payload string,
 ) {
 	var err error
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	args["source"] = sourceID
 	args["destination"] = destinationID
 	if reportTo != "" {
@@ -272,8 +272,8 @@ func handleCreate(
 	args["payload_block"] = payloadBytes
 
 	msg := unix_agent.BundleCreateMessage{
-		Message: unix_agent.Message{Type: unix_agent.MsgTypeBundleCreate},
-		Args:    args,
+		Type: unix_agent.MsgTypeBundleCreate,
+		Args: args,
 	}
 
 	msgBytes, err := msgpack.Marshal(&msg)
@@ -339,7 +339,7 @@ func handleCreate(
 
 func handleList(connReader *bufio.Reader, connWriter *bufio.Writer, mailboxID string, new bool) {
 	msg := unix_agent.ListBundles{
-		Message: unix_agent.Message{Type: unix_agent.MsgTypeListBundles},
+		Type:    unix_agent.MsgTypeListBundles,
 		Mailbox: mailboxID,
 		New:     new,
 	}
@@ -407,7 +407,7 @@ func handleList(connReader *bufio.Reader, connWriter *bufio.Writer, mailboxID st
 
 func handleGetBundle(connReader *bufio.Reader, connWriter *bufio.Writer, mailboxID, bundleID, output string, remove bool) {
 	msg := unix_agent.FetchBundle{
-		Message:  unix_agent.Message{Type: unix_agent.MsgTypeFetchBundle},
+		Type:     unix_agent.MsgTypeFetchBundle,
 		Mailbox:  mailboxID,
 		BundleID: bundleID,
 		Remove:   remove,
@@ -490,7 +490,7 @@ func handleGetBundle(connReader *bufio.Reader, connWriter *bufio.Writer, mailbox
 
 func handleGetAllBundles(connReader *bufio.Reader, connWriter *bufio.Writer, mailboxID string, new bool, remove bool) {
 	msg := unix_agent.FetchAllBundles{
-		Message: unix_agent.Message{Type: unix_agent.MsgTypeFetchAllBundles},
+		Type:    unix_agent.MsgTypeFetchAllBundles,
 		Mailbox: mailboxID,
 		New:     new,
 		Remove:  remove,

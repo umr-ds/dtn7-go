@@ -31,7 +31,7 @@ func TestRegisterListener(t *testing.T) {
 
 		numberOfListeners := rapid.Uint8Max(10).Draw(t, "Number of Listeners")
 		listeners := make([]*dummy_cla.DummyListener, numberOfListeners)
-		for i := 0; i < len(listeners); i++ {
+		for i := range listeners {
 			address := rapid.String().Draw(t, fmt.Sprintf("Listener %v address", i))
 			listeners[i] = dummy_cla.NewDummyListener(address)
 		}
@@ -67,11 +67,11 @@ func TestRegisterSender(t *testing.T) {
 		numberOfCLAs := rapid.Uint8Max(100).Draw(t, "Number of CLAs")
 		clas := make([]Convergence, numberOfCLAs)
 
-		noop := func(bundle bpv7.Bundle) (interface{}, error) {
+		noop := func(bundle bpv7.Bundle) (any, error) {
 			return nil, nil
 		}
 
-		for i := 0; i < len(clas); i++ {
+		for i := range clas {
 			eid := testhelpers.RandomEndpointID.Draw(t, fmt.Sprintf("CLA %v", i))
 			cla, _ := dummy_cla.NewDummyCLAPair(eid, eid, noop)
 			clas[i] = cla

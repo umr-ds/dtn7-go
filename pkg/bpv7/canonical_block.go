@@ -295,7 +295,7 @@ func (cb *CanonicalBlock) UnmarshalCbor(r io.Reader) error {
 
 // MarshalJSON writes a JSON object for this Canonical Block.
 func (cb *CanonicalBlock) MarshalJSON() ([]byte, error) {
-	var dataField interface{}
+	var dataField any
 
 	if _, ok := cb.Value.(json.Marshaler); ok {
 		dataField = cb.Value
@@ -312,7 +312,7 @@ func (cb *CanonicalBlock) MarshalJSON() ([]byte, error) {
 		BlockTypeCode BlockType         `json:"blockTypeCode"`
 		BlockType     string            `json:"blockType"`
 		ControlFlags  BlockControlFlags `json:"blockControlFlags"`
-		Data          interface{}       `json:"data"`
+		Data          any               `json:"data"`
 	}{
 		BlockNumber:   cb.BlockNumber,
 		BlockType:     cb.Value.BlockTypeName(),

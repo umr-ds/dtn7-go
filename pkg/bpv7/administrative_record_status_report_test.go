@@ -66,7 +66,7 @@ func TestStatusReportCreation(t *testing.T) {
 		t.Fatalf("ReceivedBundle's status item is incorrect: %v", bsi)
 	}
 
-	for i := 0; i < maxStatusInformationPos; i++ {
+	for i := range maxStatusInformationPos {
 		if StatusInformationPos(i) == ReceivedBundle {
 			continue
 		}

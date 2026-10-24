@@ -18,7 +18,7 @@ func TestSendReceive(t *testing.T) {
 		var wgReceive sync.WaitGroup
 		wgReceive.Add(int(numberOfBundles))
 
-		receiveFunc := func(bundle bpv7.Bundle) (interface{}, error) {
+		receiveFunc := func(bundle bpv7.Bundle) (any, error) {
 			wgReceive.Done()
 			return nil, nil
 		}
@@ -36,7 +36,7 @@ func TestSendReceive(t *testing.T) {
 			bundles[i] = testhelpers.RandomBundle.Draw(t, "bundle")
 		}
 
-		for i = 0; i < numberOfBundles; i++ {
+		for i = range numberOfBundles {
 			sender := peers[rapid.IntRange(0, len(peers)-1).Draw(t, fmt.Sprintf("Sender %v", i))]
 			go func(i uint8, sender *DummyCLA) {
 				bundle := bundles[i]

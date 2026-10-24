@@ -3,6 +3,7 @@ package application_agent
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -48,13 +49,7 @@ func TestMailboxBank(t *testing.T) {
 		}
 
 		for eid := range eidMap {
-			found := false
-			for _, reid := range registered {
-				if eid == reid {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(registered, eid)
 			if !found {
 				tr.Fatalf("EndpointID not in MailboxBank: %v", eid)
 			}

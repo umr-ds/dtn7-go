@@ -108,7 +108,7 @@ func (ct *CreationTimestamp) UnmarshalCbor(r io.Reader) error {
 		return fmt.Errorf("expected array with length 2, got %d", l)
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if f, err := cboring.ReadUInt(r); err != nil {
 			return err
 		} else {

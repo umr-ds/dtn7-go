@@ -298,7 +298,7 @@ func (ra *RestAgent) handleBuild(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ra *RestAgent) Endpoints() (eids []bpv7.EndpointID) {
-	ra.clients.Range(func(_, v interface{}) bool {
+	ra.clients.Range(func(_, v any) bool {
 		eids = append(eids, v.(bpv7.EndpointID))
 		return false
 	})

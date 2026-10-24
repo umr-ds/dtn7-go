@@ -26,7 +26,7 @@ type UNIXAgent struct {
 	listenAddress *net.UnixAddr
 	listener      *net.UnixListener
 	mailboxes     *application_agent.MailboxBank
-	stopChan      chan interface{}
+	stopChan      chan any
 }
 
 func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
@@ -38,7 +38,7 @@ func NewUNIXAgent(listenAddress string) (*UNIXAgent, error) {
 	agent := UNIXAgent{
 		listenAddress: unixAddr,
 		mailboxes:     application_agent.NewMailboxBank(),
-		stopChan:      make(chan interface{}),
+		stopChan:      make(chan any),
 	}
 	return &agent, nil
 }
@@ -273,8 +273,8 @@ func (agent *UNIXAgent) handleRegisterUnregister(message *RegisterUnregisterMess
 	}
 
 	response := GeneralResponse{
-		Message: Message{Type: MsgTypeGeneralResponse},
-		Error:   "",
+		Type:  MsgTypeGeneralResponse,
+		Error: "",
 	}
 	failure := false
 
@@ -318,10 +318,8 @@ func (agent *UNIXAgent) handleBundleCreate(message *BundleCreateMessage) ([]byte
 	log.Debug("Handling bundle create")
 
 	response := BundleCreateResponse{
-		GeneralResponse: GeneralResponse{
-			Message: Message{Type: MsgTypeBundleCreateResponse},
-			Error:   "",
-		},
+		Type:     MsgTypeBundleCreateResponse,
+		Error:    "",
 		BundleID: "",
 	}
 
@@ -353,10 +351,8 @@ func (agent *UNIXAgent) handleMailboxList(message *ListBundles) ([]byte, error) 
 	log.Debug("Handling mailbox list")
 
 	response := ListResponse{
-		GeneralResponse: GeneralResponse{
-			Message: Message{Type: MsgTypeListResponse},
-			Error:   "",
-		},
+		Type:    MsgTypeListResponse,
+		Error:   "",
 		Bundles: make([]string, 0),
 	}
 
@@ -415,10 +411,8 @@ func (agent *UNIXAgent) handleMailboxList(message *ListBundles) ([]byte, error) 
 func (agent *UNIXAgent) handleGetBundle(message *FetchBundle) ([]byte, error) {
 	log.Debug("Handling get bundle")
 	response := FetchBundleResponse{
-		GeneralResponse: GeneralResponse{
-			Message: Message{Type: MsgTypeFetchBundleResponse},
-			Error:   "",
-		},
+		Type:          MsgTypeFetchBundleResponse,
+		Error:         "",
 		BundleContent: BundleContent{},
 	}
 
@@ -489,10 +483,8 @@ func (agent *UNIXAgent) handleGetBundle(message *FetchBundle) ([]byte, error) {
 func (agent *UNIXAgent) handleGetAllBundles(message *FetchAllBundles) ([]byte, error) {
 	log.Debug("Handling get all bundles")
 	response := FetchAllBundlesResponse{
-		GeneralResponse: GeneralResponse{
-			Message: Message{Type: MsgTypeFetchAllBundlesResponse},
-			Error:   "",
-		},
+		Type:    MsgTypeFetchAllBundlesResponse,
+		Error:   "",
 		Bundles: make([]BundleContent, 0),
 	}
 

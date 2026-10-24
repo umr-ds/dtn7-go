@@ -261,7 +261,7 @@ func NewStatusReport(bndl *Bundle, statusItem StatusInformationPos, reason Statu
 		RefBundle:         bndl.ID(),
 	}
 
-	for i := 0; i < maxStatusInformationPos; i++ {
+	for i := range maxStatusInformationPos {
 		sip := StatusInformationPos(i)
 
 		switch {

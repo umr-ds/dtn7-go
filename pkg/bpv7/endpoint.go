@@ -68,7 +68,7 @@ func getEndpointManager() *endpointManager {
 		epTypes := []struct {
 			schemeNo   uint64
 			schemeName string
-			impl       interface{}
+			impl       any
 			newFunc    func(string) (EndpointType, error)
 		}{
 			{DtnEndpointSchemeNo, DtnEndpointSchemeName, DtnEndpoint{}, NewDtnEndpoint},

@@ -122,14 +122,12 @@ func (manager *Manager) DeliverBundle(bundleDescriptor *store.BundleDescriptor) 
 	for _, agent := range manager.agents {
 		err := agent.DeliverBundle(bundleDescriptor)
 		if err != nil {
-			var noIDError NoSuchIDError
-			if errors.As(err, &noIDError) {
+			if _, ok := errors.AsType[NoSuchIDError](err); ok {
 				log.WithField("bundle", bundleDescriptor.ID().String()).Trace("Agent did not know destination ID")
 				return
 			}
 
-			var alreadyDelivered AlreadyDeliveredError
-			if errors.As(err, &alreadyDelivered) {
+			if _, ok := errors.AsType[AlreadyDeliveredError](err); ok {
 				log.WithField("bundle", bundleDescriptor.ID().String()).Trace("Bundle has already been delivered")
 				return
 			}

@@ -40,8 +40,8 @@ type RestFetchResponse struct {
 
 // RestBuildRequest describes a JSON to be POSTed to /build.
 type RestBuildRequest struct {
-	UUID string                 `json:"uuid"`
-	Args map[string]interface{} `json:"arguments"`
+	UUID string         `json:"uuid"`
+	Args map[string]any `json:"arguments"`
 }
 
 // RestBuildResponse describes a JSON response for /build.
