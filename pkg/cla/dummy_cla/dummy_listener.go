@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 Markus Sommer
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package dummy_cla
 
 type DummyListener struct {

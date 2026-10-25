@@ -1,0 +1,8 @@
+version = 1
+SPDX-PackageName = "dtn7-go"
+SPDX-PackageDownloadLocation = "https://github.com/dtn7/dtn7-go"
+
+[[annotations]]
+path = ["go.mod", "go.sum"]
+SPDX-FileCopyrightText = "dtn7-go contributors, compare git log"
+SPDX-License-Identifier = "GPL-3.0-or-later"

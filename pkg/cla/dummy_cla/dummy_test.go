@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023, 2024, 2025, 2026 Markus Sommer
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package dummy_cla
 
 import (

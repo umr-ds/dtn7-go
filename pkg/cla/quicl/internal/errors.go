@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Markus Sommer
+// SPDX-FileCopyrightText: 2022, 2023 Markus Sommer
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 

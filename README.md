@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: 2019, 2020, 2021, 2022 Alvar Penning
 SPDX-FileCopyrightText: 2020 Jonas Höchst
 SPDX-FileCopyrightText: 2020 Matthias Axel Kröll
-SPDX-FileCopyrightText: 2022, 2024, 2025 Markus Sommer
+SPDX-FileCopyrightText: 2022, 2024, 2025, 2026 Markus Sommer
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->

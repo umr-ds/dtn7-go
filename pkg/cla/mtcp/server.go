@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: 2019, 2020, 2021 Alvar Penning
+// SPDX-FileCopyrightText: 2024 Artur Sterz
+// SPDX-FileCopyrightText: 2024 Markus Sommer
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 

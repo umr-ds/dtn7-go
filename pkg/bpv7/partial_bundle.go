@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2026 Markus Sommer
+// SPDX-FileCopyrightText: 2026 Philipp Jahn
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package bpv7
 
 import (

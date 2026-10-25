@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Markus Sommer
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package routing
 
 import (

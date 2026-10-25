@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2020 Alvar Penning
+// SPDX-FileCopyrightText: 2023, 2024, 2025, 2026 Markus Sommer
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Package application_agent contains all application agents as well as the agent Manager.
 // An application agent is any interface which allows users/applications to interact with the bundle node.
 // The ApplicationAgent specifies which methods an application agent has to provide.

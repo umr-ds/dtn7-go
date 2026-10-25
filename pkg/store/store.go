@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText: 2023, 2024, 2025 Markus Sommer
 // SPDX-FileCopyrightText: 2023, 2024 Artur Sterz
+// SPDX-FileCopyrightText: 2023, 2024, 2025, 2026 Markus Sommer
+// SPDX-FileCopyrightText: 2026 Philipp Jahn
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
