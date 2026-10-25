@@ -38,31 +38,31 @@ func main() {
 		Required: true,
 	})
 
-	create := parser.NewCommand("create", "Create a bundle")
-	sourceID := create.String("s", "source", &argparse.Options{
+	send := parser.NewCommand("send", "Send a bundle")
+	sourceID := send.String("s", "source", &argparse.Options{
 		Help:     "Bundle source EndpointID",
 		Required: true,
 	})
-	destinationID := create.String("d", "destination", &argparse.Options{
+	destinationID := send.String("d", "destination", &argparse.Options{
 		Help:     "Bundle destination EndpointID",
 		Required: true,
 	})
-	reportTo := create.String("r", "report", &argparse.Options{
+	reportTo := send.String("r", "report", &argparse.Options{
 		Help:     "EndpointID to send status reports to",
 		Required: false,
 		Default:  "",
 	})
-	creationTimestamp := create.String("t", "timestamp", &argparse.Options{
+	creationTimestamp := send.String("t", "timestamp", &argparse.Options{
 		Help:     "Bundle's creation timestamp",
 		Required: false,
 		Default:  "now",
 	})
-	lifetime := create.String("l", "lifetime", &argparse.Options{
+	lifetime := send.String("l", "lifetime", &argparse.Options{
 		Help:     "Bundle's lifetime",
 		Required: false,
 		Default:  "24h",
 	})
-	payload := create.String("p", "payload", &argparse.Options{
+	payload := send.String("p", "payload", &argparse.Options{
 		Help:     "Bundle's payload, either a filename to read or 'stdin'",
 		Required: false,
 		Default:  "stdin",
@@ -131,8 +131,8 @@ func main() {
 		handleRegisterUnregister(connReader, connWriter, *registerID, true)
 	} else if unRegister.Happened() {
 		handleRegisterUnregister(connReader, connWriter, *unRegisterID, false)
-	} else if create.Happened() {
-		handleCreate(
+	} else if send.Happened() {
+		handleSend(
 			connReader,
 			connWriter,
 			*sourceID,
@@ -226,7 +226,7 @@ func handleRegisterUnregister(connReader *bufio.Reader, connWriter *bufio.Writer
 	}
 }
 
-func handleCreate(
+func handleSend(
 	connReader *bufio.Reader,
 	connWriter *bufio.Writer,
 	sourceID, destinationID, reportTo, creationTimestamp, lifetime, payload string,
