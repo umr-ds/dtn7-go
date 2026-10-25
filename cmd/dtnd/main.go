@@ -37,8 +37,14 @@ func main() {
 		return
 	}
 
-	defer stopDTNd()
-	err = startDTNd(conf)
+	log.SetLevel(conf.LogLevel)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02T15:04:05.000",
+	})
+
+	components, err := startDTNd(conf)
+	defer stopDTNd(components)
 	if err != nil {
 		log.WithField("errors", err).Error("Errors during daemon startup")
 		return
@@ -52,12 +58,8 @@ func main() {
 	return
 }
 
-func startDTNd(conf config) (startupErrors error) {
-	log.SetLevel(conf.LogLevel)
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: "2006-01-02T15:04:05.000",
-	})
+func startDTNd(conf config) (*processing.Components, error) {
+	var startupErrors error
 
 	components := &processing.Components{NodeID: conf.NodeID}
 
@@ -67,12 +69,6 @@ func startDTNd(conf config) (startupErrors error) {
 		err = NewStartupError("Error initialising store", err)
 		startupErrors = errors.Join(startupErrors, err)
 	}
-	defer func() {
-		err := bundleStore.Shutdown()
-		if err != nil {
-			log.WithField("error", err).Error("error shutting down store")
-		}
-	}()
 	components.Store = bundleStore
 
 	// Setup IdKeeper
@@ -95,7 +91,6 @@ func startDTNd(conf config) (startupErrors error) {
 	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
 		processing.NewBundle(components, bundle)
 	})
-	defer aaManager.Shutdown()
 	components.AAManager = aaManager
 
 	if conf.Agents.REST.Address != "" {
@@ -127,7 +122,6 @@ func startDTNd(conf config) (startupErrors error) {
 		processing.NewPeer(components, eid)
 	}
 	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
-	defer claManager.Shutdown()
 	components.CLAManager = claManager
 
 	for _, lstConf := range conf.Listener {
@@ -165,7 +159,6 @@ func startDTNd(conf config) (startupErrors error) {
 	if err != nil {
 		err = NewStartupError("Error initializing cron scheduler", err)
 		startupErrors = errors.Join(startupErrors, err)
-		return
 	}
 	_, err = s.NewJob(
 		gocron.DurationJob(
@@ -194,15 +187,28 @@ func startDTNd(conf config) (startupErrors error) {
 		err = NewStartupError("Error initializing garbage collection cronjob", err)
 		startupErrors = errors.Join(startupErrors, err)
 	}
-
+	components.Scheduler = s
 	s.Start()
-	return
+
+	return components, startupErrors
 }
 
-func stopDTNd() {
+func stopDTNd(components *processing.Components) {
+	err := components.Scheduler.Shutdown()
+	if err != nil {
+		log.WithField("error", err).Error("error shutting down cron")
+	}
+
 	discovery.ShutdownDiscoveryManager()
+	components.CLAManager.Shutdown()
+	components.AAManager.Shutdown()
 	routing.ShutdownAlgorithm()
 	id_keeper.ShutdownIdKeeper()
+
+	err = components.Store.Shutdown()
+	if err != nil {
+		log.WithField("error", err).Error("error shutting down store")
+	}
 }
 
 func gc(comps *processing.Components) {

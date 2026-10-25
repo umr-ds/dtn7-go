@@ -5,6 +5,8 @@
 package processing
 
 import (
+	"github.com/go-co-op/gocron/v2"
+
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/dtn7/dtn7-go/pkg/cla"
@@ -15,7 +17,8 @@ import (
 // that the processing pipeline needs to do its job.
 type Components struct {
 	// This node's administrative endpoint
-	NodeID bpv7.EndpointID
+	NodeID    bpv7.EndpointID
+	Scheduler gocron.Scheduler
 
 	Store      *store.BundleStore
 	CLAManager *cla.Manager
