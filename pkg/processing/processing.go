@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023, 2024, 2025 Markus Sommer
+// SPDX-FileCopyrightText: 2023, 2024, 2025, 2026 Markus Sommer
 // SPDX-FileCopyrightText: 2023, 2024 Artur Sterz
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -18,14 +18,8 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-var ownNodeID bpv7.EndpointID
-
-func SetOwnNodeID(nid bpv7.EndpointID) {
-	ownNodeID = nid
-}
-
 // forwardingAsync implements the bundle forwarding procedure described in RFC9171 section 5.4
-func forwardingAsync(claManager *cla.Manager, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
+func forwardingAsync(comps *Components, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
 	log.WithField("bundle", bundleDescriptor).Debug("Processing bundle")
 
 	// Whatever happens below, the bundle's constraints must be reset once this pass is over.
@@ -71,10 +65,10 @@ func forwardingAsync(claManager *cla.Manager, bundleDescriptor *store.BundleDesc
 		return
 	}
 
-	peers := claManager.GetFilteredPeers(knownHolders)
+	peers := comps.CLAManager.GetFilteredPeers(knownHolders)
 
 	// attempt direct delivery
-	peers = directDelivery(bundleDescriptor, bundle, peers)
+	peers = directDelivery(comps, bundleDescriptor, bundle, peers)
 
 	// Ask routing algorithm if we should send to anyone else.
 	forwardToPeers := routing.GetAlgorithmSingleton().SelectPeersForForwarding(bundleDescriptor, peers)
@@ -85,11 +79,11 @@ func forwardingAsync(claManager *cla.Manager, bundleDescriptor *store.BundleDesc
 	}
 
 	// Steps 4-6 happen in separate function
-	forwardBundleToPeers(bundleDescriptor, bundle, forwardToPeers)
+	forwardBundleToPeers(comps, bundleDescriptor, bundle, forwardToPeers)
 }
 
-func BundleForwarding(claManager *cla.Manager, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
-	go forwardingAsync(claManager, bundleDescriptor, bundle)
+func BundleForwarding(comps *Components, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle) {
+	go forwardingAsync(comps, bundleDescriptor, bundle)
 }
 
 // directDelivery forwards the bundle to all peers which are the bundle's destination.
@@ -97,7 +91,7 @@ func BundleForwarding(claManager *cla.Manager, bundleDescriptor *store.BundleDes
 // can forward the bundle to the remaining peers afterwards.
 // Note: peers which failed to receive the bundle are not part of the returned list either.
 // They are not added to the known holders, so the next dispatch will attempt direct delivery again.
-func directDelivery(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peers []cla.ConvergenceSender) []cla.ConvergenceSender {
+func directDelivery(comps *Components, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peers []cla.ConvergenceSender) []cla.ConvergenceSender {
 	metadata, err := bundleDescriptor.Metadata()
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -119,13 +113,13 @@ func directDelivery(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundl
 	}
 
 	if len(deliveries) > 0 {
-		forwardBundleToPeers(bundleDescriptor, bundle, deliveries)
+		forwardBundleToPeers(comps, bundleDescriptor, bundle, deliveries)
 	}
 
 	return remaining
 }
 
-func forwardBundleToPeers(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peers []cla.ConvergenceSender) {
+func forwardBundleToPeers(comps *Components, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peers []cla.ConvergenceSender) {
 	var err error
 
 	// load bundle if necessary
@@ -146,7 +140,7 @@ func forwardBundleToPeers(bundleDescriptor *store.BundleDescriptor, bundle *bpv7
 		bundle.RemoveExtensionBlockByBlockNumber(prevNodeBlock.BlockNumber)
 	}
 	// Step 4.2: add new previous node block
-	prevNodeBlock := bpv7.NewCanonicalBlock(0, 0, bpv7.NewPreviousNodeBlock(ownNodeID))
+	prevNodeBlock := bpv7.NewCanonicalBlock(0, 0, bpv7.NewPreviousNodeBlock(comps.NodeID))
 	err = bundle.AddExtensionBlock(prevNodeBlock)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -207,19 +201,19 @@ func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.
 	}
 }
 
-func DispatchPending(st *store.BundleStore, clam *cla.Manager) {
+func DispatchPending(comps *Components) {
 	log.Debug("Dispatching bundles")
 
-	bundles := st.GetDispatchable()
+	bundles := comps.Store.GetDispatchable()
 
 	log.WithField("bundles", bundles).Debug("Bundles to dispatch")
 
 	for _, bundle := range bundles {
-		BundleForwarding(clam, bundle, nil)
+		BundleForwarding(comps, bundle, nil)
 	}
 }
 
-func NewPeer(st *store.BundleStore, clam *cla.Manager, peerID bpv7.EndpointID) {
+func NewPeer(comps *Components, peerID bpv7.EndpointID) {
 	routing.GetAlgorithmSingleton().NotifyPeerAppeared(peerID)
-	DispatchPending(st, clam)
+	DispatchPending(comps)
 }

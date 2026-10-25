@@ -24,18 +24,18 @@ type Manager struct {
 
 	// receiveCallback will be called for every received bundle
 	// This is necessary since we can't directly import either the store or processing module without creating an import loop
-	receiveCallback func(manager *Manager, bundle *bpv7.Bundle)
+	receiveCallback func(bundle *bpv7.Bundle)
 
 	// connectCallback is called whenever a new peer connects.
 	// This is necessary since we can't import the routing-module without creating an import loop
-	connectCallback func(manager *Manager, eid bpv7.EndpointID)
+	connectCallback func(eid bpv7.EndpointID)
 
 	// disconnectCallback is called whenever a new peer disconnects.
 	// This is necessary since we can't import the routing-module without creating an import loop
 	disconnectCallback func(eid bpv7.EndpointID)
 }
 
-func NewCLAManager(receiveCallback func(manager *Manager, bundle *bpv7.Bundle), connectCallback func(manager *Manager, eid bpv7.EndpointID), disconnectCallback func(eid bpv7.EndpointID)) *Manager {
+func NewCLAManager(receiveCallback func(bundle *bpv7.Bundle), connectCallback func(eid bpv7.EndpointID), disconnectCallback func(eid bpv7.EndpointID)) *Manager {
 	manager := Manager{
 		receivers:          make([]ConvergenceReceiver, 0, 10),
 		senders:            make([]ConvergenceSender, 0, 10),
@@ -209,13 +209,13 @@ func (manager *Manager) activateCLA(cla Convergence) {
 // This method spawns a new goroutine to handle the bundle asynchronously
 func (manager *Manager) NotifyReceive(bundle *bpv7.Bundle) {
 	log.WithField("bundle", bundle.ID().String()).Debug("Received bundle")
-	go manager.receiveCallback(manager, bundle)
+	go manager.receiveCallback(bundle)
 }
 
 // NotifyConnect is to be called by a CLA if it has successfully stared AND is a sender AND is aware of its neighbours EndpointID
 // This information is passed on to the routing algorithm asynchronously
 func (manager *Manager) NotifyConnect(peerID bpv7.EndpointID) {
-	go manager.connectCallback(manager, peerID)
+	go manager.connectCallback(peerID)
 }
 
 // NotifyDisconnect is to be called by a CLA if it notices that it has lost its connection

@@ -1,7 +1,6 @@
 package processing
 
 import (
-	"github.com/dtn7/dtn7-go/pkg/cla"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
@@ -10,18 +9,18 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func receiveAsync(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
+func receiveAsync(comps *Components, bundle *bpv7.Bundle) {
 	isAdminRecord := bundle.IsAdministrativeRecord()
 	if isAdminRecord {
-		handleAdministrativeRecord(st, clam, bundle)
+		handleAdministrativeRecord(comps, bundle)
 	} else {
-		handleBundle(st, clam, bundle, false)
+		handleBundle(comps, bundle, false)
 	}
 }
 
 // handleBundle handles a bundle which does not contain an administrative record
-func handleBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle, new bool) {
-	bundleDescriptor, err := st.InsertBundle(bundle)
+func handleBundle(comps *Components, bundle *bpv7.Bundle, new bool) {
+	bundleDescriptor, err := comps.Store.InsertBundle(bundle)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"bundle": bundle.ID(),
@@ -40,14 +39,14 @@ func handleBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle,
 
 	if dispatch, err := bundleDescriptor.HasConstraint(store.DispatchPending); err == nil && dispatch {
 		log.WithField("bundle", bundleDescriptor).Debug("Forwarding received bundle")
-		BundleForwarding(clam, bundleDescriptor, bundle)
+		BundleForwarding(comps, bundleDescriptor, bundle)
 	}
 }
 
 // handleAdministrativeRecord handles reception logic for bundles which contains an administrative record
-func handleAdministrativeRecord(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
+func handleAdministrativeRecord(comps *Components, bundle *bpv7.Bundle) {
 	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && application_agent.GetManagerSingleton().DeliverAdministrativeRecord(bundle) {
-		bundleDescriptor, err := st.InsertBundle(bundle)
+		bundleDescriptor, err := comps.Store.InsertBundle(bundle)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"bundle": bundle.ID(),
@@ -56,16 +55,16 @@ func handleAdministrativeRecord(st *store.BundleStore, clam *cla.Manager, bundle
 			return
 		}
 
-		BundleForwarding(clam, bundleDescriptor, bundle)
+		BundleForwarding(comps, bundleDescriptor, bundle)
 	}
 }
 
 // ReceiveBundle is to be called when a bundle is received from another node
-func ReceiveBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
-	go receiveAsync(st, clam, bundle)
+func ReceiveBundle(comps *Components, bundle *bpv7.Bundle) {
+	go receiveAsync(comps, bundle)
 }
 
 // NewBundle is to be called if a bundle was created on this node
-func NewBundle(st *store.BundleStore, clam *cla.Manager, bundle *bpv7.Bundle) {
-	go handleBundle(st, clam, bundle, true)
+func NewBundle(comps *Components, bundle *bpv7.Bundle) {
+	go handleBundle(comps, bundle, true)
 }

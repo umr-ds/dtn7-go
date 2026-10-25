@@ -59,7 +59,7 @@ func startDTNd(conf config) (startupErrors error) {
 		TimestampFormat: "2006-01-02T15:04:05.000",
 	})
 
-	processing.SetOwnNodeID(conf.NodeID)
+	components := &processing.Components{NodeID: conf.NodeID}
 
 	// Setup Store
 	bundleStore, err := store.NewStore(conf.NodeID, conf.Store.Path)
@@ -73,6 +73,7 @@ func startDTNd(conf config) (startupErrors error) {
 			log.WithField("error", err).Error("error shutting down store")
 		}
 	}()
+	components.Store = bundleStore
 
 	// Setup IdKeeper
 	id_keeper.InitializeIdKeeper()
@@ -90,15 +91,45 @@ func startDTNd(conf config) (startupErrors error) {
 	}
 	routing.InitialiseAlgorithm(routingAlgorithm)
 
-	// Setup CLAs
-	claReceiveCallback := func(manager *cla.Manager, bundle *bpv7.Bundle) {
-		processing.ReceiveBundle(bundleStore, manager, bundle)
+	// Setup application agents
+	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
+		processing.NewBundle(components, bundle)
+	})
+	application_agent.InitialiseApplicationAgentManager(aaManager)
+	defer aaManager.Shutdown()
+	components.AAManager = aaManager
+
+	if conf.Agents.REST.Address != "" {
+		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address, bundleStore)
+		err = aaManager.RegisterAgent(restAgent)
+		if err != nil {
+			err = NewStartupError("Error registering REST application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
+		}
 	}
-	claConnectCallback := func(manager *cla.Manager, eid bpv7.EndpointID) {
-		processing.NewPeer(bundleStore, manager, eid)
+	if conf.Agents.UNIX.Socket != "" {
+		unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Socket, bundleStore)
+		if err != nil {
+			err = NewStartupError("Error creating UNIX application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
+		}
+		err = aaManager.RegisterAgent(unixAgent)
+		if err != nil {
+			err = NewStartupError("Error registering UNIX application agent", err)
+			startupErrors = errors.Join(startupErrors, err)
+		}
+	}
+
+	// Setup CLAs
+	claReceiveCallback := func(bundle *bpv7.Bundle) {
+		processing.ReceiveBundle(components, bundle)
+	}
+	claConnectCallback := func(eid bpv7.EndpointID) {
+		processing.NewPeer(components, eid)
 	}
 	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
 	defer claManager.Shutdown()
+	components.CLAManager = claManager
 
 	for _, lstConf := range conf.Listener {
 		var listener cla.ConvergenceListener
@@ -124,35 +155,6 @@ func startDTNd(conf config) (startupErrors error) {
 		}
 	}
 
-	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
-		processing.NewBundle(bundleStore, claManager, bundle)
-	})
-	// Setup application agents
-	application_agent.InitialiseApplicationAgentManager(aaManager)
-	defer aaManager.Shutdown()
-
-	if conf.Agents.REST.Address != "" {
-		restAgent := rest_agent.NewRestAgent("/rest", conf.Agents.REST.Address, bundleStore)
-		err = aaManager.RegisterAgent(restAgent)
-		if err != nil {
-			err = NewStartupError("Error registering REST application agent", err)
-			startupErrors = errors.Join(startupErrors, err)
-		}
-	}
-
-	if conf.Agents.UNIX.Socket != "" {
-		unixAgent, err := unix_agent.NewUNIXAgent(conf.Agents.UNIX.Socket, bundleStore)
-		if err != nil {
-			err = NewStartupError("Error creating UNIX application agent", err)
-			startupErrors = errors.Join(startupErrors, err)
-		}
-		err = aaManager.RegisterAgent(unixAgent)
-		if err != nil {
-			err = NewStartupError("Error registering UNIX application agent", err)
-			startupErrors = errors.Join(startupErrors, err)
-		}
-	}
-
 	// Setup neighbour discovery
 	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager)
 	if err != nil {
@@ -171,8 +173,9 @@ func startDTNd(conf config) (startupErrors error) {
 			conf.Cron.Dispatch,
 		),
 		gocron.NewTask(
-			processing.DispatchPending,
-		),
+			func() {
+				processing.DispatchPending(components)
+			}),
 	)
 	if err != nil {
 		err = NewStartupError("Error initializing dispatching cronjob", err)
@@ -184,7 +187,7 @@ func startDTNd(conf config) (startupErrors error) {
 		),
 		gocron.NewTask(
 			func() {
-				gc(bundleStore, aaManager)
+				gc(components)
 			},
 		),
 	)
@@ -203,9 +206,9 @@ func stopDTNd() {
 	id_keeper.ShutdownIdKeeper()
 }
 
-func gc(st *store.BundleStore, aam *application_agent.Manager) {
-	st.GarbageCollect()
-	aam.GC()
+func gc(comps *processing.Components) {
+	comps.Store.GarbageCollect()
+	comps.AAManager.GC()
 }
 
 type StartupError struct {
