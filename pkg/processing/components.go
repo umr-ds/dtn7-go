@@ -10,6 +10,7 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/dtn7/dtn7-go/pkg/cla"
+	"github.com/dtn7/dtn7-go/pkg/discovery"
 	"github.com/dtn7/dtn7-go/pkg/routing"
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
@@ -24,5 +25,6 @@ type Components struct {
 	Store            *store.BundleStore
 	CLAManager       *cla.Manager
 	AAManager        *application_agent.Manager
+	DiscoveryManager *discovery.Manager
 	RoutingAlgorithm routing.Algorithm
 }

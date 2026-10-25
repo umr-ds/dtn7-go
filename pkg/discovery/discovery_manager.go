@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020, 2022, 2023 Markus Sommer
+// SPDX-FileCopyrightText: 2020, 2022, 2023, 2026 Markus Sommer
 // SPDX-FileCopyrightText: 2020, 2021 Alvar Penning
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -39,17 +39,10 @@ type Manager struct {
 	stopChan6 chan struct{}
 }
 
-var managerSingleton *Manager
-
-func InitialiseManager(
-	nodeId bpv7.EndpointID,
+func NewManager(nodeId bpv7.EndpointID,
 	announcements []Announcement, announcementInterval time.Duration,
 	ipv4, ipv6 bool,
-	claManager *cla.Manager) error {
-	if managerSingleton != nil {
-		log.Fatalf("Attempting to access an uninitialised discovery manager. This must never happen!")
-	}
-
+	claManager *cla.Manager) (*Manager, error) {
 	var manager = &Manager{
 		NodeId:     nodeId,
 		claManager: claManager,
@@ -70,7 +63,7 @@ func InitialiseManager(
 
 	msg, err := MarshalAnnouncements(announcements)
 	if err != nil {
-		return err
+		return manager, err
 	}
 
 	sets := []struct {
@@ -111,37 +104,17 @@ func InitialiseManager(
 		select {
 		case discoverErr := <-discoverErrChan:
 			if discoverErr != nil {
-				return discoverErr
+				return nil, discoverErr
 			}
 
 		case <-time.After(time.Second):
 			break
 		}
 	}
-
-	managerSingleton = manager
-	return nil
+	return manager, nil
 }
 
-// GetManagerSingleton returns the manager singleton-instance.
-// Attempting to call this function before manager initialisation will cause the program to panic.
-func GetManagerSingleton() *Manager {
-	if managerSingleton == nil {
-		log.Fatalf("Attempting to access an uninitialised discovery manager. This must never happen!")
-	}
-	return managerSingleton
-}
-
-func ShutdownDiscoveryManager() {
-	if managerSingleton == nil {
-		return
-	}
-	managerSingleton.shutdown()
-}
-
-func (manager *Manager) shutdown() {
-	managerSingleton = nil
-
+func (manager *Manager) Shutdown() {
 	for _, c := range []chan struct{}{manager.stopChan4, manager.stopChan6} {
 		if c != nil {
 			c <- struct{}{}

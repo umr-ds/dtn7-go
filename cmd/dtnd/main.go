@@ -149,11 +149,12 @@ func startDTNd(conf config) (*processing.Components, error) {
 	}
 
 	// Setup neighbour discovery
-	err = discovery.InitialiseManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager)
+	discoveryManager, err := discovery.NewManager(conf.NodeID, conf.Discovery, 2*time.Second, true, false, claManager)
 	if err != nil {
 		err = NewStartupError("Error starting discovery manager", err)
 		startupErrors = errors.Join(startupErrors, err)
 	}
+	components.DiscoveryManager = discoveryManager
 
 	s, err := gocron.NewScheduler()
 	if err != nil {
@@ -199,7 +200,7 @@ func stopDTNd(components *processing.Components) {
 		log.WithField("error", err).Error("error shutting down cron")
 	}
 
-	discovery.ShutdownDiscoveryManager()
+	components.DiscoveryManager.Shutdown()
 	components.CLAManager.Shutdown()
 	components.AAManager.Shutdown()
 	id_keeper.ShutdownIdKeeper()
