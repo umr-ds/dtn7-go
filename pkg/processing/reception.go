@@ -3,7 +3,6 @@ package processing
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dtn7/dtn7-go/pkg/application_agent"
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/dtn7/dtn7-go/pkg/routing"
 	"github.com/dtn7/dtn7-go/pkg/store"
@@ -29,7 +28,7 @@ func handleBundle(comps *Components, bundle *bpv7.Bundle, new bool) {
 		return
 	}
 
-	application_agent.GetManagerSingleton().DeliverBundle(bundleDescriptor)
+	comps.AAManager.DeliverBundle(bundleDescriptor)
 
 	if new {
 		routing.GetAlgorithmSingleton().NotifyNewBundle(bundleDescriptor, bundle)
@@ -45,7 +44,7 @@ func handleBundle(comps *Components, bundle *bpv7.Bundle, new bool) {
 
 // handleAdministrativeRecord handles reception logic for bundles which contains an administrative record
 func handleAdministrativeRecord(comps *Components, bundle *bpv7.Bundle) {
-	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && application_agent.GetManagerSingleton().DeliverAdministrativeRecord(bundle) {
+	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && comps.AAManager.DeliverAdministrativeRecord(bundle) {
 		bundleDescriptor, err := comps.Store.InsertBundle(bundle)
 		if err != nil {
 			log.WithFields(log.Fields{
