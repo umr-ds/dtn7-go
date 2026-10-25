@@ -5,6 +5,7 @@
 package processing
 
 import (
+	"github.com/dtn7/dtn7-go/pkg/id_keeper"
 	"github.com/go-co-op/gocron/v2"
 
 	"github.com/dtn7/dtn7-go/pkg/application_agent"
@@ -27,4 +28,5 @@ type Components struct {
 	AAManager        *application_agent.Manager
 	DiscoveryManager *discovery.Manager
 	RoutingAlgorithm routing.Algorithm
+	IDKeeper         *id_keeper.IDKeeper
 }

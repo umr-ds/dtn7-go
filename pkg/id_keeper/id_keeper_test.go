@@ -15,9 +15,7 @@ func TestIdKeeper(t *testing.T) {
 	bndl0 := testhelpers.SampleBundle(t)
 	bndl1 := testhelpers.SampleBundle(t)
 
-	InitializeIdKeeper()
-
-	keeper := GetIdKeeperSingleton()
+	keeper := NewIDKeeper()
 
 	keeper.Update(bndl0)
 	keeper.Update(bndl1)

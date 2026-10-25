@@ -18,12 +18,14 @@ import (
 type Manager struct {
 	stateMutex   sync.RWMutex
 	agents       map[string]ApplicationAgent
+	idKeeper     *id_keeper.IDKeeper
 	sendCallback func(bundle *bpv7.Bundle)
 }
 
-func NewAgentManager(sendCallback func(bundle *bpv7.Bundle)) *Manager {
+func NewAgentManager(idKeeper *id_keeper.IDKeeper, sendCallback func(bundle *bpv7.Bundle)) *Manager {
 	manager := Manager{
 		agents:       make(map[string]ApplicationAgent),
+		idKeeper:     idKeeper,
 		sendCallback: sendCallback,
 	}
 	return &manager
@@ -136,8 +138,7 @@ func (manager *Manager) DeliverAdministrativeRecord(bundle *bpv7.Bundle) bool {
 // Send is a callback to be used by agents to send a newly created bundle
 func (manager *Manager) Send(bundle *bpv7.Bundle) bpv7.BundleID {
 	// TODO: call the IdKeeper at a more centralised location
-	idKeeper := id_keeper.GetIdKeeperSingleton()
-	idKeeper.Update(bundle)
+	manager.idKeeper.Update(bundle)
 	log.WithFields(log.Fields{"bundle": bundle.ID().String()}).Debug("Application agent sent bundle")
 	manager.sendCallback(bundle)
 	return bundle.ID()

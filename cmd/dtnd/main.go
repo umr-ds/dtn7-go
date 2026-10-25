@@ -72,7 +72,8 @@ func startDTNd(conf config) (*processing.Components, error) {
 	components.Store = bundleStore
 
 	// Setup IdKeeper
-	id_keeper.InitializeIdKeeper()
+	idKeeper := id_keeper.NewIDKeeper()
+	components.IDKeeper = idKeeper
 
 	// Setup routing
 	var routingAlgorithm routing.Algorithm = nil
@@ -88,7 +89,7 @@ func startDTNd(conf config) (*processing.Components, error) {
 	components.RoutingAlgorithm = routingAlgorithm
 
 	// Setup application agents
-	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
+	aaManager := application_agent.NewAgentManager(idKeeper, func(bundle *bpv7.Bundle) {
 		processing.NewBundle(components, bundle)
 	})
 	components.AAManager = aaManager
@@ -203,7 +204,6 @@ func stopDTNd(components *processing.Components) {
 	components.DiscoveryManager.Shutdown()
 	components.CLAManager.Shutdown()
 	components.AAManager.Shutdown()
-	id_keeper.ShutdownIdKeeper()
 
 	err = components.Store.Shutdown()
 	if err != nil {
