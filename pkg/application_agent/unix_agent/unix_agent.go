@@ -23,19 +23,21 @@ import (
 
 // UNIXAgent allows for communication with dtnd via a UNIX domain socket
 type UNIXAgent struct {
+	manager       *application_agent.Manager
 	listenAddress *net.UnixAddr
 	listener      *net.UnixListener
 	mailboxes     *application_agent.MailboxBank
 	stopChan      chan any
 }
 
-func NewUNIXAgent(listenAddress string, st *store.BundleStore) (*UNIXAgent, error) {
+func NewUNIXAgent(manager *application_agent.Manager, listenAddress string, st *store.BundleStore) (*UNIXAgent, error) {
 	unixAddr, err := net.ResolveUnixAddr("unix", listenAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	agent := UNIXAgent{
+		manager:       manager,
 		listenAddress: unixAddr,
 		mailboxes:     application_agent.NewMailboxBank(st),
 		stopChan:      make(chan any),
@@ -333,7 +335,7 @@ func (agent *UNIXAgent) handleBundleCreate(message *BundleCreateMessage) ([]byte
 
 	if !failed {
 		log.WithField("bundle", bundle).Debug("Handing bundle over to manager")
-		bundleId := application_agent.GetManagerSingleton().Send(bundle)
+		bundleId := agent.manager.Send(bundle)
 		response.BundleID = bundleId.String()
 	}
 

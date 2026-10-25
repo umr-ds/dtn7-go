@@ -73,6 +73,7 @@ import (
 )
 
 type RestAgent struct {
+	manager       *application_agent.Manager
 	router        *mux.Router
 	listenAddress string
 
@@ -81,11 +82,12 @@ type RestAgent struct {
 	mailboxes *application_agent.MailboxBank
 }
 
-func NewRestAgent(prefix, listenAddress string, st *store.BundleStore) (ra *RestAgent) {
+func NewRestAgent(manager *application_agent.Manager, prefix, listenAddress string, st *store.BundleStore) (ra *RestAgent) {
 	r := mux.NewRouter()
 	restRouter := r.PathPrefix(prefix).Subrouter()
 
 	ra = &RestAgent{
+		manager:       manager,
 		router:        restRouter,
 		listenAddress: listenAddress,
 		mailboxes:     application_agent.NewMailboxBank(st),
@@ -288,7 +290,7 @@ func (ra *RestAgent) handleBuild(w http.ResponseWriter, r *http.Request) {
 			"uuid":   buildRequest.UUID,
 			"bundle": b.ID().String(),
 		}).Info("REST client sent bundle")
-		application_agent.GetManagerSingleton().Send(b)
+		ra.manager.Send(b)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
