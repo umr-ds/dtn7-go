@@ -99,7 +99,7 @@ func (manager *Manager) checkPresent(cla Convergence) bool {
 	// check if this CLA is present in the manager's pendingStart-list
 	for _, pending := range manager.pendingStart {
 		if cla.Address() == pending.Address() {
-			log.WithField("cla", cla.Address()).Debug("CLA already registered as pending")
+			log.WithField("cla", cla.Address()).Trace("CLA already registered as pending")
 			return true
 		}
 	}
@@ -108,7 +108,7 @@ func (manager *Manager) checkPresent(cla Convergence) bool {
 	if _, ok := cla.(ConvergenceReceiver); ok {
 		for _, registeredReceiver := range manager.receivers {
 			if cla.Address() == registeredReceiver.Address() {
-				log.WithField("cla", cla.Address()).Debug("CLA already registered as receiver")
+				log.WithField("cla", cla.Address()).Trace("CLA already registered as receiver")
 				return true
 			}
 		}
@@ -118,7 +118,7 @@ func (manager *Manager) checkPresent(cla Convergence) bool {
 	if _, ok := cla.(ConvergenceSender); ok {
 		for _, registeredSender := range manager.senders {
 			if cla.Address() == registeredSender.Address() {
-				log.WithField("cla", cla.Address()).Debug("CLA already registered as sender")
+				log.WithField("cla", cla.Address()).Trace("CLA already registered as sender")
 				return true
 			}
 		}

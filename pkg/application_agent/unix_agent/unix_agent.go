@@ -126,7 +126,7 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 	connWriter := bufio.NewWriter(conn)
 
 	msgLenBytes := make([]byte, 8)
-	log.Debug("Receiving message length")
+	log.Trace("Receiving message length")
 	bytesRead, err := io.ReadFull(connReader, msgLenBytes)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -135,10 +135,10 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 		}).Error("Failed reading 8-byte message length")
 		return
 	}
-	log.WithField("bytes read", bytesRead).Debug("Received message length")
+	log.WithField("bytes read", bytesRead).Trace("Received message length")
 
 	msgLen := binary.BigEndian.Uint64(msgLenBytes)
-	log.WithField("msgLength", msgLen).Debug("Decoded message length")
+	log.WithField("msgLength", msgLen).Trace("Decoded message length")
 
 	log.Debug("Receiving message")
 	msgBytes := make([]byte, msgLen)
@@ -247,7 +247,7 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 		}).Error("Error sending reply")
 		return
 	}
-	log.WithField("bytes written", bytesWritten).Debug("Sent reply length")
+	log.WithField("bytes written", bytesWritten).Trace("Sent reply length")
 
 	bytesWritten, err = connWriter.Write(replyBytes)
 	if err != nil {
@@ -264,7 +264,7 @@ func (agent *UNIXAgent) handleConnection(conn net.Conn) {
 		log.WithField("error", err).Error("Error flushing send buffer")
 		return
 	}
-	log.Debug("Flushed send buffer - done")
+	log.Trace("Flushed send buffer - done")
 }
 
 func (agent *UNIXAgent) handleRegisterUnregister(message *RegisterUnregisterMessage, register bool) ([]byte, error) {

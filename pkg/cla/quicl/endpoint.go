@@ -83,7 +83,7 @@ Methods for Convergable interface
 */
 
 func (endpoint *Endpoint) Close() error {
-	log.WithField("peer", endpoint.peerAddress).Debug("Someone called Close()")
+	log.WithField("peer", endpoint.peerAddress).Debug("Closing QUICL CLA")
 	err := endpoint.connection.CloseWithError(internal.ApplicationShutdown, "Daemon shutting down")
 	return err
 }
@@ -96,7 +96,7 @@ func (endpoint *Endpoint) Activate() error {
 	log.WithFields(log.Fields{
 		"cla":  endpoint.id,
 		"peer": endpoint.peerAddress,
-	}).Debug("Starting CLA")
+	}).Debug("Starting QUICL CLA")
 
 	// if we are on the dialer-side we need to first initiate the quic-connection
 	if endpoint.dialer {
@@ -218,12 +218,12 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 		}
 
 		return err
-	} else {
-		log.WithFields(log.Fields{
-			"peer":   endpoint.peerId,
-			"bundle": bndl.ID(),
-		}).Debug("Opened stream")
 	}
+
+	log.WithFields(log.Fields{
+		"peer":   endpoint.peerId,
+		"bundle": bndl.ID(),
+	}).Trace("Opened stream")
 
 	// TODO: Do we actually need the bufio-wrapper?
 	writer := bufio.NewWriter(stream)
@@ -250,12 +250,12 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 			}
 		}
 		return err
-	} else {
-		log.WithFields(log.Fields{
-			"peer":   endpoint.peerId,
-			"bundle": bndl.ID(),
-		}).Debug("Wrote bundle to stream")
 	}
+
+	log.WithFields(log.Fields{
+		"peer":   endpoint.peerId,
+		"bundle": bndl.ID(),
+	}).Trace("Wrote bundle to stream")
 
 	if err = writer.Flush(); err != nil {
 		log.WithFields(log.Fields{
@@ -280,12 +280,12 @@ func (endpoint *Endpoint) Send(bndl *bpv7.Bundle) error {
 			}
 		}
 		return err
-	} else {
-		log.WithFields(log.Fields{
-			"peer":   endpoint.peerId,
-			"bundle": bndl.ID(),
-		}).Debug("Flushed buffer")
 	}
+
+	log.WithFields(log.Fields{
+		"peer":   endpoint.peerId,
+		"bundle": bndl.ID(),
+	}).Trace("Flushed buffer")
 
 	sErr := stream.Close()
 	if sErr != nil {
