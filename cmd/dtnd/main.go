@@ -85,7 +85,7 @@ func startDTNd(conf config) (*processing.Components, error) {
 		err = NewStartupError(fmt.Sprintf("%v not valid routing algorithm", conf.Routing.Algorithm), nil)
 		startupErrors = errors.Join(startupErrors, err)
 	}
-	routing.InitialiseAlgorithm(routingAlgorithm)
+	components.RoutingAlgorithm = routingAlgorithm
 
 	// Setup application agents
 	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
@@ -121,7 +121,7 @@ func startDTNd(conf config) (*processing.Components, error) {
 	claConnectCallback := func(eid bpv7.EndpointID) {
 		processing.NewPeer(components, eid)
 	}
-	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routing.GetAlgorithmSingleton().NotifyPeerDisappeared)
+	claManager := cla.NewCLAManager(claReceiveCallback, claConnectCallback, routingAlgorithm.NotifyPeerDisappeared)
 	components.CLAManager = claManager
 
 	for _, lstConf := range conf.Listener {
@@ -202,7 +202,6 @@ func stopDTNd(components *processing.Components) {
 	discovery.ShutdownDiscoveryManager()
 	components.CLAManager.Shutdown()
 	components.AAManager.Shutdown()
-	routing.ShutdownAlgorithm()
 	id_keeper.ShutdownIdKeeper()
 
 	err = components.Store.Shutdown()

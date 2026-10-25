@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/dtn7/dtn7-go/pkg/cla"
 	"github.com/dtn7/dtn7-go/pkg/store"
@@ -77,32 +75,6 @@ type Algorithm interface {
 	// NotifyPeerDisappeared notifies the Algorithm about the
 	// disappearance of a peer.
 	NotifyPeerDisappeared(peer bpv7.EndpointID)
-}
-
-var algorithmSingleton Algorithm
-
-func InitialiseAlgorithm(algorithm Algorithm) {
-	if algorithmSingleton != nil {
-		log.Fatalf("Attempting to initialise an already initialised algorithm. This must never happen!")
-	}
-	if algorithm == nil {
-		log.Fatalf("Attempting to initialise algorithm with nil. This must never happen!")
-	}
-
-	algorithmSingleton = algorithm
-}
-
-// GetAlgorithmSingleton returns the routing algorithm singleton-instance.
-// Attempting to call this function before algorithm initialisation will cause the program to panic.
-func GetAlgorithmSingleton() Algorithm {
-	if algorithmSingleton == nil {
-		log.Fatalf("Attempting to access an uninitialised algorithm. This must never happen!")
-	}
-	return algorithmSingleton
-}
-
-func ShutdownAlgorithm() {
-	algorithmSingleton = nil
 }
 
 // uniquePeers filters a list of ConvergenceSenders for uniqueness.

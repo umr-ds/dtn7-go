@@ -14,7 +14,6 @@ import (
 
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
 	"github.com/dtn7/dtn7-go/pkg/cla"
-	"github.com/dtn7/dtn7-go/pkg/routing"
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
@@ -71,7 +70,7 @@ func forwardingAsync(comps *Components, bundleDescriptor *store.BundleDescriptor
 	peers = directDelivery(comps, bundleDescriptor, bundle, peers)
 
 	// Ask routing algorithm if we should send to anyone else.
-	forwardToPeers := routing.GetAlgorithmSingleton().SelectPeersForForwarding(bundleDescriptor, peers)
+	forwardToPeers := comps.RoutingAlgorithm.SelectPeersForForwarding(bundleDescriptor, peers)
 
 	// Step 3: if contraindicated, the deferred ResetConstraints will make the bundle dispatchable again
 	if len(forwardToPeers) == 0 {
@@ -153,12 +152,12 @@ func forwardBundleToPeers(comps *Components, bundleDescriptor *store.BundleDescr
 	var wg sync.WaitGroup
 	wg.Add(len(peers))
 	for _, peer := range peers {
-		go forwardBundleToPeer(bundleDescriptor, bundle, peer, &wg)
+		go forwardBundleToPeer(comps, bundleDescriptor, bundle, peer, &wg)
 	}
 	wg.Wait()
 }
 
-func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peer cla.ConvergenceSender, wg *sync.WaitGroup) {
+func forwardBundleToPeer(comps *Components, bundleDescriptor *store.BundleDescriptor, bundle *bpv7.Bundle, peer cla.ConvergenceSender, wg *sync.WaitGroup) {
 	log.WithFields(log.Fields{
 		"bundle": bundle.ID(),
 		"cla":    peer,
@@ -168,7 +167,7 @@ func forwardBundleToPeer(bundleDescriptor *store.BundleDescriptor, bundle *bpv7.
 	// allow routing algorithm to modify bundle
 	// "extract" headers from bundle
 	bundleHeaders := bpv7.BundleHeaders(bundle)
-	err := routing.GetAlgorithmSingleton().ModifyHeaders(bundleDescriptor, bundleHeaders, peer)
+	err := comps.RoutingAlgorithm.ModifyHeaders(bundleDescriptor, bundleHeaders, peer)
 	if err != nil {
 		// if there was an error, we abort
 		log.WithFields(log.Fields{
@@ -214,6 +213,6 @@ func DispatchPending(comps *Components) {
 }
 
 func NewPeer(comps *Components, peerID bpv7.EndpointID) {
-	routing.GetAlgorithmSingleton().NotifyPeerAppeared(peerID)
+	comps.RoutingAlgorithm.NotifyPeerAppeared(peerID)
 	DispatchPending(comps)
 }

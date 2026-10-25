@@ -6,7 +6,7 @@ import (
 
 func TestEpidemicRouting_SelectPeersForForwarding(t *testing.T) {
 	router := NewEpidemicRouting()
-	st := setup(t, router)
+	st := setup(t)
 	defer teardown(t, st)
 
 	peers := generatePeers(10)

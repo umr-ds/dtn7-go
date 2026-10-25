@@ -4,7 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dtn7/dtn7-go/pkg/bpv7"
-	"github.com/dtn7/dtn7-go/pkg/routing"
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
@@ -31,9 +30,9 @@ func handleBundle(comps *Components, bundle *bpv7.Bundle, new bool) {
 	comps.AAManager.DeliverBundle(bundleDescriptor)
 
 	if new {
-		routing.GetAlgorithmSingleton().NotifyNewBundle(bundleDescriptor, bundle)
+		comps.RoutingAlgorithm.NotifyNewBundle(bundleDescriptor, bundle)
 	} else {
-		routing.GetAlgorithmSingleton().NotifyReceivedBundle(bundleDescriptor, bundle)
+		comps.RoutingAlgorithm.NotifyReceivedBundle(bundleDescriptor, bundle)
 	}
 
 	if dispatch, err := bundleDescriptor.HasConstraint(store.DispatchPending); err == nil && dispatch {
@@ -44,7 +43,7 @@ func handleBundle(comps *Components, bundle *bpv7.Bundle, new bool) {
 
 // handleAdministrativeRecord handles reception logic for bundles which contains an administrative record
 func handleAdministrativeRecord(comps *Components, bundle *bpv7.Bundle) {
-	if routing.GetAlgorithmSingleton().NotifyReceivedAdministrativeRecord(bundle) && comps.AAManager.DeliverAdministrativeRecord(bundle) {
+	if comps.RoutingAlgorithm.NotifyReceivedAdministrativeRecord(bundle) && comps.AAManager.DeliverAdministrativeRecord(bundle) {
 		bundleDescriptor, err := comps.Store.InsertBundle(bundle)
 		if err != nil {
 			log.WithFields(log.Fields{

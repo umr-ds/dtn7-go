@@ -11,7 +11,7 @@ import (
 	"github.com/dtn7/dtn7-go/pkg/store"
 )
 
-func setup(t *testing.T, router Algorithm) *store.BundleStore {
+func setup(t *testing.T) *store.BundleStore {
 	nodeID := bpv7.EndpointID{EndpointType: bpv7.DtnEndpoint{
 		NodeName:  "test",
 		Demux:     "",
@@ -21,7 +21,6 @@ func setup(t *testing.T, router Algorithm) *store.BundleStore {
 	if err != nil {
 		t.Fatal(err)
 	}
-	InitialiseAlgorithm(router)
 
 	return st
 }
@@ -31,7 +30,6 @@ func teardown(t *testing.T, st *store.BundleStore) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ShutdownAlgorithm()
 }
 
 func generatePeers(n uint) []cla.ConvergenceSender {
