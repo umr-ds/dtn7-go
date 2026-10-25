@@ -95,7 +95,6 @@ func startDTNd(conf config) (startupErrors error) {
 	aaManager := application_agent.NewAgentManager(func(bundle *bpv7.Bundle) {
 		processing.NewBundle(components, bundle)
 	})
-	application_agent.InitialiseApplicationAgentManager(aaManager)
 	defer aaManager.Shutdown()
 	components.AAManager = aaManager
 

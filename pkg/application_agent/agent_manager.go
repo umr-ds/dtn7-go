@@ -29,24 +29,7 @@ func NewAgentManager(sendCallback func(bundle *bpv7.Bundle)) *Manager {
 	return &manager
 }
 
-var managerSingleton *Manager
-
-func InitialiseApplicationAgentManager(manager *Manager) {
-	managerSingleton = manager
-}
-
-// GetManagerSingleton returns the manager singleton-instance.
-// Attempting to call this function before store initialisation will cause the program to panic.
-func GetManagerSingleton() *Manager {
-	if managerSingleton == nil {
-		log.Fatalf("Attempting to access an uninitialised agent manager. This must never happen!")
-	}
-	return managerSingleton
-}
-
 func (manager *Manager) Shutdown() {
-	managerSingleton = nil
-
 	manager.stateMutex.RLock()
 	defer manager.stateMutex.RUnlock()
 
